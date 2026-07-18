@@ -3,7 +3,8 @@ import type { ProviderConfig } from './provider.js';
 import { loadConfig, detectProviderFromEnv, envKeyMap } from './config.js';
 
 export interface GeneratedMessage {
-  message: string;
+  subject: string;
+  body?: string;
   provider: string;
   model: string;
 }
@@ -14,39 +15,54 @@ function isValidCommitMessage(msg: string): boolean {
   return COMMIT_PATTERN.test(msg) && msg.length <= 100;
 }
 
-function clean(raw: string): string {
-  return raw
+function splitSubjectBody(raw: string): { subject: string; body?: string } {
+  const cleaned = raw
     .replace(/^```[\w]*\n?/gm, '')
     .replace(/```$/gm, '')
     .replace(/^['"]|['"]$/g, '')
-    .trim()
-    .split('\n')[0];
+    .trim();
+
+  const lines = cleaned.split('\n');
+  const subject = lines[0].trim();
+  const rest = lines.slice(1).map(l => l.trim()).filter(Boolean).join('\n');
+  return { subject, body: rest || undefined };
 }
 
 function buildPrompt(diff: string, commitTypes: string[], truncated: boolean, strict: boolean = false): string {
   const types = commitTypes.join(', ');
 
   const strictRule = strict
-    ? '\nCRITICAL: Respond with ONLY the commit message. No explanations, no analysis, no markdown. Just one line.'
-    : '';
+    ? '\nCRITICAL: Respond with ONLY the first line of the commit message. No body, no explanations.'
+    : '\nYou may optionally include a body paragraph after a blank line explaining the change.';
 
   return `Generate a conventional commit message for the following git diff.
 
 Commit types available: ${types}
 
-The message format must follow conventional commits: <type>(<scope>): <description>
+Format:
+<type>(<scope>): <description>
+
+(optional blank line followed by bullet points explaining the change)
 
 Examples:
 - feat(api): add user authentication endpoint
+
+  - Adds JWT-based login with refresh token rotation
+  - Implements rate limiting on auth endpoints
+  - Handles token expiry with automatic refresh
+
 - fix(parser): handle null input gracefully
-- docs(readme): update installation instructions
-- refactor(core): simplify state management
+
+  - Fixes crash when receiving null values from the API
+  - Returns empty result set as fallback
+  - Adds regression tests for edge cases
 
 Rules:
 - Use the imperative mood ("add" not "added" / "adds")
 - First line max 72 characters
 - Scope is optional - infer from the files changed
-- If the change is a simple "typo fix" just say "fix: fix typo"
+- Each bullet point should be a single line under the subject
+- Keep bullet points brief and specific
 - Respond with only the commit message — no intro, no explanation${strictRule}
 
 ${truncated ? '(Note: the diff was truncated due to size. Generate a message for what is visible.)\n' : ''}
@@ -91,27 +107,32 @@ export async function generateCommitMessage(
   const providerConfig: ProviderConfig = {
     apiKey,
     model,
-    maxTokens: 300,
+    maxTokens: 500,
   };
 
   // Attempt 1: normal prompt
   let prompt = buildPrompt(diff, config.commitTypes ?? [], truncated);
   let raw = await provider.generate(prompt, providerConfig);
-  let message = clean(raw);
+  let parsed = splitSubjectBody(raw);
 
   // Attempt 2: stricter prompt if model rambled
-  if (!isValidCommitMessage(message)) {
+  if (!isValidCommitMessage(parsed.subject)) {
     prompt = buildPrompt(diff, config.commitTypes ?? [], truncated, true);
     raw = await provider.generate(prompt, providerConfig);
-    message = clean(raw);
+    parsed = splitSubjectBody(raw);
   }
 
   // Final check
-  if (!isValidCommitMessage(message)) {
+  if (!isValidCommitMessage(parsed.subject)) {
     throw new Error(
-      `Model returned an invalid response. Try a different model.\n  Got: ${message}`,
+      `Model returned an invalid response. Try a different model.\n  Got: ${parsed.subject}`,
     );
   }
 
-  return { message, provider: providerName, model };
+  return {
+    subject: parsed.subject,
+    body: parsed.body,
+    provider: providerName,
+    model,
+  };
 }

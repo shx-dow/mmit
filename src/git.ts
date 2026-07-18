@@ -101,8 +101,12 @@ export function getDiffStats(): DiffStats {
   return { files, insertions, deletions };
 }
 
-export function createCommit(message: string): string {
-  execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, {
+export function createCommit(subject: string, body?: string): string {
+  const escape = (s: string) => s.replace(/"/g, '\\"');
+  const cmd = body
+    ? `git commit -m "${escape(subject)}" -m "${escape(body)}"`
+    : `git commit -m "${escape(subject)}"`;
+  execSync(cmd, {
     stdio: 'inherit',
     encoding: 'utf-8',
   });

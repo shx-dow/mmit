@@ -118,14 +118,21 @@ export async function run(): Promise<void> {
 
   // Interactive loop
   while (true) {
-    p.log.step(msg.message);
+    p.log.step(msg.subject);
+    if (msg.body) {
+      p.log.message('');
+      for (const line of msg.body.split('\n')) {
+        p.log.message(`  ${line.replace(/^-\s*/, '• ')}`);
+      }
+      p.log.message('');
+    }
 
     if (opts.dryRun || opts.auto || loadConfig().autoConfirm) {
       if (opts.dryRun) {
-        console.log(msg.message);
+        console.log(msg.body ? `${msg.subject}\n\n${msg.body}` : msg.subject);
         p.outro('Dry-run — not committing.');
       } else {
-        const hash = createCommit(msg.message);
+        const hash = createCommit(msg.subject, msg.body);
         p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
       }
       break;
@@ -134,9 +141,10 @@ export async function run(): Promise<void> {
     const action = await p.select({
       message: 'What do you want to do?',
       options: [
-        { value: 'commit', label: 'Commit', hint: 'use this message' },
-        { value: 'regenerate', label: 'Regenerate', hint: 'generate a new message' },
+        { value: 'subject', label: 'Commit (subject only)', hint: 'first line only' },
+        ...(msg.body ? [{ value: 'body', label: 'Commit (subject + body)', hint: 'includes body' }] : []),
         { value: 'edit', label: 'Edit', hint: 'edit the message manually' },
+        { value: 'regenerate', label: 'Regenerate', hint: 'generate a new message' },
         { value: 'cancel', label: 'Cancel' },
       ],
     });
@@ -146,8 +154,14 @@ export async function run(): Promise<void> {
       break;
     }
 
-    if (action === 'commit') {
-      const hash = createCommit(msg.message);
+    if (action === 'subject') {
+      const hash = createCommit(msg.subject, undefined);
+      p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
+      break;
+    }
+
+    if (action === 'body') {
+      const hash = createCommit(msg.subject, msg.body);
       p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
       break;
     }
@@ -169,7 +183,7 @@ export async function run(): Promise<void> {
     if (action === 'edit') {
       const edited = await p.text({
         message: 'Edit the commit message',
-        initialValue: msg.message,
+        initialValue: msg.subject,
         validate: (val: string) => {
           if (!val.trim()) return 'Message cannot be empty';
         },
@@ -179,8 +193,8 @@ export async function run(): Promise<void> {
         continue;
       }
 
-      msg = { ...msg, message: edited.trim() };
-      p.log.step(msg.message);
+      msg.subject = edited.trim();
+      p.log.step(msg.subject);
 
       const confirmEdit = await p.confirm({
         message: 'Commit with this message?',
@@ -192,7 +206,7 @@ export async function run(): Promise<void> {
       }
 
       if (confirmEdit) {
-        const hash = createCommit(msg.message);
+        const hash = createCommit(msg.subject, msg.body);
         p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
         break;
       }
