@@ -102,10 +102,10 @@ export function getDiffStats(): DiffStats {
 }
 
 export function createCommit(subject: string, body?: string): string {
-  const escape = (s: string) => s.replace(/"/g, '\\"');
+  const esc = (s: string) => s.replace(/["`$\\]/g, '\\$&');
   const cmd = body
-    ? `git commit -m "${escape(subject)}" -m "${escape(body)}"`
-    : `git commit -m "${escape(subject)}"`;
+    ? `git commit -m "${esc(subject)}" -m "${esc(body)}"`
+    : `git commit -m "${esc(subject)}"`;
   execSync(cmd, {
     stdio: 'inherit',
     encoding: 'utf-8',

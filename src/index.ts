@@ -120,11 +120,11 @@ export async function run(): Promise<void> {
   while (true) {
     p.log.step(msg.subject);
     if (msg.body) {
-      p.log.message('');
-      for (const line of msg.body.split('\n')) {
-        p.log.message(`  ${line.replace(/^-\s*/, '• ')}`);
-      }
-      p.log.message('');
+      const bullets = msg.body
+        .split('\n')
+        .map(l => `  ${l.replace(/^-\s*/, '• ')}`)
+        .join('\n');
+      p.log.message(bullets);
     }
 
     if (opts.dryRun || opts.auto || loadConfig().autoConfirm) {
