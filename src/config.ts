@@ -64,10 +64,22 @@ export function saveGlobalConfig(config: Config): void {
   cached = config;
 }
 
-export function detectProviderFromEnv(): string | null {
-  if (process.env.OPENAI_API_KEY) return 'openai';
-  if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
-  if (process.env.GEMINI_API_KEY) return 'gemini';
-  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
+const ENV_KEY_MAP: Record<string, string> = {
+  openai: 'OPENAI_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY',
+  gemini: 'GEMINI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+};
+
+export function detectProviderFromEnv(preferred?: string): string | null {
+  const order = preferred && ENV_KEY_MAP[preferred]
+    ? [preferred, ...Object.keys(ENV_KEY_MAP).filter(k => k !== preferred)]
+    : Object.keys(ENV_KEY_MAP);
+
+  for (const name of order) {
+    if (process.env[ENV_KEY_MAP[name]]) return name;
+  }
   return null;
 }
+
+export { ENV_KEY_MAP as envKeyMap };

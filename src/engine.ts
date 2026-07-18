@@ -1,6 +1,6 @@
 import { providers } from './provider.js';
 import type { ProviderConfig } from './provider.js';
-import { loadConfig, detectProviderFromEnv } from './config.js';
+import { loadConfig, detectProviderFromEnv, envKeyMap } from './config.js';
 import pico from 'picocolors';
 
 export interface GeneratedMessage {
@@ -46,21 +46,13 @@ export async function generateCommitMessage(
   // Determine provider and model
   const providerName = overrideProvider
     || config.provider
-    || detectProviderFromEnv()
+    || detectProviderFromEnv(config.provider)
     || 'openai';
 
   const provider = providers[providerName];
   if (!provider) {
     throw new Error(`Unknown provider "${providerName}". Available: ${Object.keys(providers).join(', ')}`);
   }
-
-  // Determine API key
-  const envKeyMap: Record<string, string> = {
-    openai: 'OPENAI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    gemini: 'GEMINI_API_KEY',
-    openrouter: 'OPENROUTER_API_KEY',
-  };
 
   const apiKey = process.env[envKeyMap[providerName]];
   if (!apiKey) {
@@ -71,8 +63,8 @@ export async function generateCommitMessage(
   const defaultModels: Record<string, string> = {
     openai: 'gpt-4o-mini',
     anthropic: 'claude-sonnet-4-20250514',
-    gemini: 'gemini-3.5-flash-lite',
-    openrouter: 'openai/gpt-oss-20b:free',
+    gemini: 'gemini-3.1-flash-lite',
+    openrouter: 'openrouter/free',
   };
 
   const model = overrideModel || config.model || defaultModels[providerName];

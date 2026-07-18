@@ -70,20 +70,51 @@ const geminiProvider: Provider = {
 const openrouterProvider: Provider = {
   name: 'openrouter',
   async generate(prompt, config) {
-    const client = new OpenAI({
-      apiKey: config.apiKey,
-      baseURL: 'https://openrouter.ai/api/v1',
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/mmit',
+        'X-OpenRouter-Title': 'mmit',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: config.maxTokens ?? 300,
+      }),
     });
-    const res = await client.chat.completions.create({
-      model: config.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.3,
-      max_tokens: config.maxTokens ?? 300,
-    });
-    return res.choices[0]?.message?.content?.trim() ?? '';
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`OpenRouter returned ${res.status}: ${body || res.statusText}`);
+    }
+
+    const data = await res.json() as {
+      error?: { message?: string };
+      choices?: { message?: { content?: string }; finish_reason?: string }[];
+    };
+
+    if (data.error) {
+      throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`);
+    }
+
+    const choice = data.choices?.[0];
+
+    if (choice?.finish_reason === 'error') {
+      throw new Error('OpenRouter: provider disconnected mid-generation (model unavailable)');
+    }
+
+    const content = choice?.message?.content;
+    if (!content) {
+      throw new Error(`OpenRouter returned empty response. Try a different model.`);
+    }
+
+    return content.trim();
   },
 };
 
