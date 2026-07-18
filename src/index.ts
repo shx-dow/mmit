@@ -5,7 +5,7 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
 import { generateCommitMessage } from './engine.js';
-import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats } from './git.js';
+import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo } from './git.js';
 
 export async function run(): Promise<void> {
   const version = '0.1.0';
@@ -14,6 +14,12 @@ export async function run(): Promise<void> {
   if (process.argv.includes('init')) {
     await handleInit();
     return;
+  }
+
+  if (!isGitRepo()) {
+    p.intro(pico.bold(`mmit v${version}`));
+    p.outro(pico.red('Not a git repository'));
+    process.exit(1);
   }
 
   program

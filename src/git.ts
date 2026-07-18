@@ -14,7 +14,7 @@ export interface DiffStats {
 
 const GIT_OPTS = { encoding: 'utf-8' as const, maxBuffer: 10 * 1024 * 1024, stdio: 'pipe' as const };
 
-function isGitRepo(): boolean {
+export function isGitRepo(): boolean {
   try {
     execSync('git rev-parse --git-dir', { stdio: 'pipe', encoding: 'utf-8' });
     return true;

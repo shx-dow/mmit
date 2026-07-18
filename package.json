@@ -1,5 +1,5 @@
 {
-  "name": "mmit",
+  "name": "@shxd/mmit",
   "version": "0.1.0",
   "description": "AI-powered git commit message generator",
   "bin": {
@@ -17,6 +17,7 @@
     "@clack/prompts": "^0.7.0",
     "@google/generative-ai": "^0.21.0",
     "commander": "^12.0.0",
+    "mmit": "link:",
     "openai": "^4.73.0",
     "picocolors": "^1.1.0"
   },

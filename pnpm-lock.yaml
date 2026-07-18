@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  mmit: 'link:'
+
 importers:
 
   .:
@@ -20,6 +23,9 @@ importers:
       commander:
         specifier: ^12.0.0
         version: 12.1.0
+      mmit:
+        specifier: 'link:'
+        version: 'link:'
       openai:
         specifier: ^4.73.0
         version: 4.104.0
