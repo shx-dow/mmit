@@ -9,7 +9,7 @@ export interface GeneratedMessage {
   model: string;
 }
 
-const COMMIT_PATTERN = /^[a-zA-Z]+(\([a-zA-Z0-9_.-/]+\))?:\s.+/;
+const COMMIT_PATTERN = /^[a-zA-Z]+(\([a-zA-Z0-9_.\-,/]+\))?!?:\s.+/;
 
 function isValidCommitMessage(msg: string): boolean {
   return COMMIT_PATTERN.test(msg) && msg.length <= 100;
@@ -33,7 +33,7 @@ function buildPrompt(diff: string, commitTypes: string[], truncated: boolean, st
 
   const strictRule = strict
     ? '\nCRITICAL: Respond with ONLY the first line of the commit message. No body, no explanations.'
-    : '\nYou may optionally include a body paragraph after a blank line explaining the change.';
+    : '\nYou may optionally include a body paragraph explaining the change.';
 
   return `Generate a conventional commit message for the following git diff.
 
@@ -42,27 +42,37 @@ Commit types available: ${types}
 Format:
 <type>(<scope>): <description>
 
-(optional blank line followed by bullet points explaining the change)
+<optional body — explain why, not how>
+
+<optional footers>
 
 Examples:
+
 - feat(api): add user authentication endpoint
 
-  - Adds JWT-based login with refresh token rotation
-  - Implements rate limiting on auth endpoints
-  - Handles token expiry with automatic refresh
+  - Required for mobile clients that need long-lived sessions
+  - Prevents abuse of the auth endpoint under heavy load
+  Closes #142
 
 - fix(parser): handle null input gracefully
 
-  - Fixes crash when receiving null values from the API
-  - Returns empty result set as fallback
-  - Adds regression tests for edge cases
+  - Null values from the upstream API were crashing the parser
+  Co-authored-by: Alice <alice@example.com>
+
+- feat(api)!: remove deprecated /v2/users endpoint
+
+  BREAKING CHANGE: The /v2/users endpoint has been removed. Use /v3/users instead.
 
 Rules:
+
 - Use the imperative mood ("add" not "added" / "adds")
-- First line max 72 characters
-- Scope is optional - infer from the files changed
-- Each bullet point should be a single line under the subject
-- Keep bullet points brief and specific
+- Subject line max 72 characters
+- Scope is optional — infer from the files changed
+- Always separate the subject and body with a blank line
+- Write the body as bullet points (each prefixed with "-")
+- Use the body to explain WHY the change was made, not WHAT (the diff already shows the what)
+- Use footers for issue references (Closes, Refs), breaking changes (BREAKING CHANGE:), and co-authors
+- For breaking changes, add "!" after the type/scope AND optionally a BREAKING CHANGE footer
 - Respond with only the commit message — no intro, no explanation${strictRule}
 
 ${truncated ? '(Note: the diff was truncated due to size. Generate a message for what is visible.)\n' : ''}

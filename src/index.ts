@@ -7,8 +7,24 @@ import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js
 import { generateCommitMessage } from './engine.js';
 import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo } from './git.js';
 
+const LOGO = `\
+                    █▓ █▓▄
+ ██▀██▀▓▄ ██▀██▀▓▄ ▄▄▄ ██
+ ██ ██ ██ ██ ██ ██  ██ ▀██▄`;
+
+function renderHeader(version: string): string {
+  const lines = LOGO.split('\n');
+  const maxWidth = Math.max(...lines.map(l => l.length));
+  const v = pico.dim(`v${version}`);
+  return pico.dim(lines.map((l, i) => {
+    if (i === 0) return l + ' '.repeat(maxWidth - l.length + 2) + v;
+    return l;
+  }).join('\n'));
+}
+
+const VERSION = '0.1.0';
+
 export async function run(): Promise<void> {
-  const version = '0.1.0';
 
   // Handle `mmit init` before commander parsing
   if (process.argv.includes('init')) {
@@ -17,7 +33,8 @@ export async function run(): Promise<void> {
   }
 
   if (!isGitRepo()) {
-    p.intro(pico.bold(`mmit v${version}`));
+    process.stderr.write(renderHeader(VERSION) + '\n');
+    p.intro('');
     p.outro(pico.red('Not a git repository'));
     process.exit(1);
   }
@@ -25,7 +42,7 @@ export async function run(): Promise<void> {
   program
     .name('mmit')
     .description('AI-powered git commit message generator')
-    .version(version)
+    .version(VERSION)
     .option('-p, --provider <name>', 'AI provider (openai, anthropic, gemini, openrouter)')
     .option('-m, --model <name>', 'Model name override')
     .option('-d, --diff-only', 'Print diff and exit')
@@ -39,6 +56,12 @@ export async function run(): Promise<void> {
   // Handle --config
   if (opts.config) {
     const config = loadConfig();
+    if (config.apiKey) {
+      const key = config.apiKey;
+      const prefix = key.slice(0, 4);
+      const suffix = key.slice(-4);
+      config.apiKey = `${prefix}...${suffix}`;
+    }
     console.log(JSON.stringify(config, null, 2));
     console.error('\n  Global config: ~/.mmit.json');
     console.error('  Local config:  .mmit.json in project root (overrides global)');
@@ -55,7 +78,8 @@ export async function run(): Promise<void> {
   const provider = opts.provider || loadConfig().provider || detectProviderFromEnv();
   const model = opts.model;
 
-  p.intro(pico.bold(`mmit v${version}`));
+  process.stderr.write(renderHeader(VERSION) + '\n');
+  p.intro('');
 
   const diffResult = getGitDiff();
   let diff = diffResult.diff;
@@ -230,7 +254,8 @@ const PROVIDER_INFO: Record<string, { env: string; defaultModel: string }> = {
 };
 
 async function handleInit(): Promise<void> {
-  p.intro(pico.bold('mmit init'));
+  process.stderr.write(renderHeader(VERSION) + '\n');
+  p.intro('');
 
   const provider = await p.select({
     message: 'AI provider',
