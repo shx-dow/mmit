@@ -9,6 +9,13 @@ import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats } from './git.j
 
 export async function run(): Promise<void> {
   const version = '0.1.0';
+
+  // Handle `mmit init` before commander parsing
+  if (process.argv.includes('init')) {
+    await handleInit();
+    return;
+  }
+
   program
     .name('mmit')
     .description('AI-powered git commit message generator')
@@ -71,25 +78,19 @@ export async function run(): Promise<void> {
 
   // Detect if we need a provider setup
   if (!provider) {
-    p.log.warn('No API key found in environment.');
-
-    const choice = await p.select({
-      message: 'Choose a provider',
-      options: [
-        { value: 'openai', label: 'OpenAI', hint: 'env: OPENAI_API_KEY' },
-        { value: 'anthropic', label: 'Anthropic', hint: 'env: ANTHROPIC_API_KEY' },
-        { value: 'gemini', label: 'Gemini', hint: 'env: GEMINI_API_KEY' },
-        { value: 'openrouter', label: 'OpenRouter', hint: 'env: OPENROUTER_API_KEY' },
-      ],
+    p.log.warn('No API key found.');
+    const runInit = await p.confirm({
+      message: 'Run `mmit init` to set one up?',
+      initialValue: true,
     });
 
-    if (p.isCancel(choice)) {
+    if (p.isCancel(runInit) || !runInit) {
       p.outro('Cancelled.');
       return;
     }
 
-    p.log.error(`Set ${String(choice).toUpperCase()}_API_KEY in your environment and re-run.`);
-    process.exit(1);
+    await handleInit();
+    return;
   }
 
   const diffStats = getDiffStats();
@@ -199,4 +200,70 @@ export async function run(): Promise<void> {
       continue;
     }
   }
+}
+
+const PROVIDER_INFO: Record<string, { env: string; defaultModel: string }> = {
+  openai:    { env: 'OPENAI_API_KEY',    defaultModel: 'gpt-4o-mini' },
+  anthropic: { env: 'ANTHROPIC_API_KEY', defaultModel: 'claude-sonnet-4-20250514' },
+  gemini:    { env: 'GEMINI_API_KEY',    defaultModel: 'gemini-3.1-flash-lite' },
+  openrouter:{ env: 'OPENROUTER_API_KEY',defaultModel: 'openrouter/free' },
+};
+
+async function handleInit(): Promise<void> {
+  p.intro(pico.bold('mmit init'));
+
+  const provider = await p.select({
+    message: 'AI provider',
+    options: Object.entries(PROVIDER_INFO).map(([name, info]) => ({
+      value: name,
+      label: name,
+      hint: process.env[info.env] ? pico.green('✓ env var set') : `env: ${info.env}`,
+    })),
+  });
+
+  if (p.isCancel(provider)) {
+    p.outro('Cancelled.');
+    return;
+  }
+
+  const info = PROVIDER_INFO[provider as string];
+  if (!info) return;
+
+  let apiKey = process.env[info.env] || '';
+
+  if (!apiKey) {
+    const input = await p.password({
+      message: `Paste your ${info.env} API key`,
+      validate: (val: string) => {
+        if (!val.trim()) return 'API key cannot be empty';
+      },
+    });
+
+    if (p.isCancel(input)) {
+      p.outro('Cancelled.');
+      return;
+    }
+
+    apiKey = (input as string).trim();
+  }
+
+  const model = await p.text({
+    message: `Default model for ${provider}`,
+    initialValue: info.defaultModel,
+    validate: (val: string) => {
+      if (!val.trim()) return 'Model name cannot be empty';
+    },
+  });
+
+  if (p.isCancel(model)) return;
+
+  const config = loadConfig();
+  config.provider = provider as string;
+  config.model = (model as string).trim();
+  if (apiKey && !process.env[info.env]) {
+    config.apiKey = apiKey;
+  }
+  saveGlobalConfig(config);
+
+  p.outro(pico.green(`Config saved to ~/.mmit.json`));
 }

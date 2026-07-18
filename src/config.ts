@@ -5,8 +5,10 @@ import { join, resolve } from 'node:path';
 export interface Config {
   // One of: openai, anthropic, gemini, openrouter
   provider?: string;
-  // Model override (e.g. gpt-4o-mini, claude-sonnet-4, gemini-2.0-flash)
+  // Model override
   model?: string;
+  // API key (alternative to env var)
+  apiKey?: string;
   // Max diff tokens to send
   maxDiffTokens?: number;
   // Custom commit types for the prompt

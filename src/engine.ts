@@ -73,9 +73,9 @@ export async function generateCommitMessage(
     throw new Error(`Unknown provider "${providerName}". Available: ${Object.keys(providers).join(', ')}`);
   }
 
-  const apiKey = process.env[envKeyMap[providerName]];
+  const apiKey = process.env[envKeyMap[providerName]] || config.apiKey;
   if (!apiKey) {
-    throw new Error(`Missing ${envKeyMap[providerName]} environment variable for provider "${providerName}"`);
+    throw new Error(`Missing ${envKeyMap[providerName]} for provider "${providerName}". Run \`mmit init\` to set one up.`);
   }
 
   // Determine model with good defaults
