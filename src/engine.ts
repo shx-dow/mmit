@@ -1,7 +1,6 @@
 import { providers } from './provider.js';
 import type { ProviderConfig } from './provider.js';
 import { loadConfig, detectProviderFromEnv, envKeyMap } from './config.js';
-import pico from 'picocolors';
 
 export interface GeneratedMessage {
   message: string;
@@ -9,8 +8,27 @@ export interface GeneratedMessage {
   model: string;
 }
 
-function buildPrompt(diff: string, commitTypes: string[], truncated: boolean): string {
+const COMMIT_PATTERN = /^[a-zA-Z]+(\([a-zA-Z0-9_.-/]+\))?:\s.+/;
+
+function isValidCommitMessage(msg: string): boolean {
+  return COMMIT_PATTERN.test(msg) && msg.length <= 100;
+}
+
+function clean(raw: string): string {
+  return raw
+    .replace(/^```[\w]*\n?/gm, '')
+    .replace(/```$/gm, '')
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+    .split('\n')[0];
+}
+
+function buildPrompt(diff: string, commitTypes: string[], truncated: boolean, strict: boolean = false): string {
   const types = commitTypes.join(', ');
+
+  const strictRule = strict
+    ? '\nCRITICAL: Respond with ONLY the commit message. No explanations, no analysis, no markdown. Just one line.'
+    : '';
 
   return `Generate a conventional commit message for the following git diff.
 
@@ -29,6 +47,7 @@ Rules:
 - First line max 72 characters
 - Scope is optional - infer from the files changed
 - If the change is a simple "typo fix" just say "fix: fix typo"
+- Respond with only the commit message — no intro, no explanation${strictRule}
 
 ${truncated ? '(Note: the diff was truncated due to size. Generate a message for what is visible.)\n' : ''}
 Diff:
@@ -69,25 +88,30 @@ export async function generateCommitMessage(
 
   const model = overrideModel || config.model || defaultModels[providerName];
 
-  const prompt = buildPrompt(diff, config.commitTypes ?? [], truncated);
-
-  console.error(pico.dim(`\n  Provider: ${providerName}  |  Model: ${model}\n`));
-
   const providerConfig: ProviderConfig = {
     apiKey,
     model,
     maxTokens: 300,
   };
 
-  const raw = await provider.generate(prompt, providerConfig);
+  // Attempt 1: normal prompt
+  let prompt = buildPrompt(diff, config.commitTypes ?? [], truncated);
+  let raw = await provider.generate(prompt, providerConfig);
+  let message = clean(raw);
 
-  // Clean up the message - remove markdown code fences if present
-  const message = raw
-    .replace(/^```[\w]*\n?/gm, '')
-    .replace(/```$/gm, '')
-    .replace(/^['"]|['"]$/g, '')
-    .trim()
-    .split('\n')[0]; // Only take the first line
+  // Attempt 2: stricter prompt if model rambled
+  if (!isValidCommitMessage(message)) {
+    prompt = buildPrompt(diff, config.commitTypes ?? [], truncated, true);
+    raw = await provider.generate(prompt, providerConfig);
+    message = clean(raw);
+  }
+
+  // Final check
+  if (!isValidCommitMessage(message)) {
+    throw new Error(
+      `Model returned an invalid response. Try a different model.\n  Got: ${message}`,
+    );
+  }
 
   return { message, provider: providerName, model };
 }

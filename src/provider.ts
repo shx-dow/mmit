@@ -106,15 +106,10 @@ const openrouterProvider: Provider = {
     const choice = data.choices?.[0];
 
     if (choice?.finish_reason === 'error') {
-      throw new Error('OpenRouter: provider disconnected mid-generation (model unavailable)');
+      return '';
     }
 
-    const content = choice?.message?.content;
-    if (!content) {
-      throw new Error(`OpenRouter returned empty response. Try a different model.`);
-    }
-
-    return content.trim();
+    return choice?.message?.content?.trim() ?? '';
   },
 };
 

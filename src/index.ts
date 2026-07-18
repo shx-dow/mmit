@@ -5,13 +5,14 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
 import { generateCommitMessage } from './engine.js';
-import { getGitDiff, stageAllAndDiff, createCommit } from './git.js';
+import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats } from './git.js';
 
 export async function run(): Promise<void> {
+  const version = '0.1.0';
   program
     .name('mmit')
     .description('AI-powered git commit message generator')
-    .version('0.1.0')
+    .version(version)
     .option('-p, --provider <name>', 'AI provider (openai, anthropic, gemini, openrouter)')
     .option('-m, --model <name>', 'Model name override')
     .option('-d, --diff-only', 'Print diff and exit')
@@ -41,9 +42,8 @@ export async function run(): Promise<void> {
   const provider = opts.provider || loadConfig().provider || detectProviderFromEnv();
   const model = opts.model;
 
-  console.error(pico.bold(pico.cyan('\n  ⚡ mmit - AI Commit Generator\n')));
+  p.intro(pico.bold(`mmit v${version}`));
 
-  // Check for changes
   const diffResult = getGitDiff();
   let diff = diffResult.diff;
   let staged = diffResult.staged;
@@ -71,7 +71,7 @@ export async function run(): Promise<void> {
 
   // Detect if we need a provider setup
   if (!provider) {
-    console.error(pico.yellow('  No API key found in environment.\n'));
+    p.log.warn('No API key found in environment.');
 
     const choice = await p.select({
       message: 'Choose a provider',
@@ -88,11 +88,14 @@ export async function run(): Promise<void> {
       return;
     }
 
-    console.error(pico.red(`\n  Set ${String(choice).toUpperCase()}_API_KEY in your environment and re-run.\n`));
+    p.log.error(`Set ${String(choice).toUpperCase()}_API_KEY in your environment and re-run.`);
     process.exit(1);
   }
 
-  // Generate commit message
+  const diffStats = getDiffStats();
+  const statsLine = `${diffStats.files} file${diffStats.files !== 1 ? 's' : ''} changed`;
+  p.log.step(`${pico.dim(statsLine)}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)}`);
+
   const spin = p.spinner();
   spin.start('Generating commit message...');
 
@@ -110,19 +113,19 @@ export async function run(): Promise<void> {
 
   spin.stop('Done');
 
+  p.log.step(pico.dim(`${msg.provider} · ${msg.model}`));
+
   // Interactive loop
   while (true) {
-    console.error();
-    console.error(pico.bold('  Proposed commit message:'));
-    console.error(pico.green(`\n    ${msg.message}\n`));
+    p.log.step(msg.message);
 
     if (opts.dryRun || opts.auto || loadConfig().autoConfirm) {
       if (opts.dryRun) {
         console.log(msg.message);
         p.outro('Dry-run — not committing.');
       } else {
-        createCommit(msg.message);
-        p.outro(pico.green('Committed!'));
+        const hash = createCommit(msg.message);
+        p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
       }
       break;
     }
@@ -143,8 +146,8 @@ export async function run(): Promise<void> {
     }
 
     if (action === 'commit') {
-      createCommit(msg.message);
-      p.outro(pico.green('Committed!'));
+      const hash = createCommit(msg.message);
+      p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
       break;
     }
 
@@ -176,10 +179,7 @@ export async function run(): Promise<void> {
       }
 
       msg = { ...msg, message: edited.trim() };
-      // Skip back to confirm with the edited message
-      console.error();
-      console.error(pico.bold('  Edited commit message:'));
-      console.error(pico.green(`\n    ${msg.message}\n`));
+      p.log.step(msg.message);
 
       const confirmEdit = await p.confirm({
         message: 'Commit with this message?',
@@ -191,8 +191,8 @@ export async function run(): Promise<void> {
       }
 
       if (confirmEdit) {
-        createCommit(msg.message);
-        p.outro(pico.green('Committed!'));
+        const hash = createCommit(msg.message);
+        p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
         break;
       }
 
