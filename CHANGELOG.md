@@ -1,3 +1,32 @@
+## v0.2.0 (2026-07-19)
+
+### Added
+
+- **release:** Add automated release command
+  - Introduce `mmit release` to automate version bumping, changelog generation, and tagging.
+  - Implement automatic semantic version detection based on conventional commit history.
+  - Refactor logo rendering and version management into a shared module.
+  - Add support for dry-run mode to preview release changes.
+- **changelog:** Add automated changelog generation
+  - Implement `generateChangelog` utility to parse git history and format commits into Markdown
+  - Add `changelog` command to the CLI to support generating and writing changelog files
+  - Support filtering by commit range, tags, and verbosity levels
+  - Enable grouping of commits by conventional type (feat, fix, etc.) and support for breaking changes
+- **git:** Add support for detecting and handling unstaged changes
+
+### Changed
+
+- **git:** Restrict diff operations to staged changes
+  - Simplify diff retrieval logic to focus exclusively on cached changes
+  - Remove fallback mechanisms for unstaged changes to ensure consistent behavior
+  - Update status parsing logic to correctly identify modified files in the git status output
+
+### Documentation
+
+- **readme:** Update project documentation screenshots
+  - Replace placeholder screenshot URLs with actual image assets
+  - Improve alignment of changelog command examples for better readability
+
 ## v0.1.0 (2026-07-18)
 
 ### Added
