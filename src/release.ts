@@ -119,6 +119,7 @@ export async function handleRelease(): Promise<void> {
     from: lastTag || undefined,
     to: 'HEAD',
     version: `v${newVersion}`,
+    verbose: true,
   });
 
   if (!changelog) {

@@ -135,7 +135,12 @@ function groupCommits(commits: CommitInfo[]): Map<SectionKey, { entry: string; b
       case 'feat': section = 'added'; break;
       case 'fix': section = 'fixed'; break;
       case 'refactor':
-      case 'perf': section = 'changed'; break;
+      case 'perf':
+      case 'chore':
+      case 'ci':
+      case 'build':
+      case 'test':
+      case 'style': section = 'changed'; break;
       case 'docs': section = 'docs'; break;
       default: continue;
     }
