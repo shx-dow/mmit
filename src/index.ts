@@ -5,6 +5,7 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
 import { generateCommitMessage } from './engine.js';
+import { generateChangelog } from './changelog.js';
 import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo, hasUnstagedChanges, getUnstagedStats } from './git.js';
 
 const LOGO = `\
@@ -29,6 +30,12 @@ export async function run(): Promise<void> {
   // Handle `mmit init` before commander parsing
   if (process.argv.includes('init')) {
     await handleInit();
+    return;
+  }
+
+  // Handle `mmit changelog` before commander parsing
+  if (process.argv.includes('changelog')) {
+    await handleChangelog();
     return;
   }
 
@@ -349,4 +356,43 @@ async function handleInit(): Promise<void> {
 
   p.outro(pico.green(`Config saved to ~/.mmit.json`));
 }
-let x = 1;
+
+async function handleChangelog(): Promise<void> {
+  const hasAll = process.argv.includes('--all') || process.argv.includes('-a');
+  const hasWrite = process.argv.includes('--write') || process.argv.includes('-w');
+  const hasVerbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+  let output = '';
+  let from = '';
+  let to = '';
+
+  for (let i = 0; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    if ((arg === '--output' || arg === '-o') && i + 1 < process.argv.length) {
+      output = process.argv[++i];
+    }
+    if (arg === '--from' && i + 1 < process.argv.length) {
+      from = process.argv[++i];
+    }
+    if (arg === '--to' && i + 1 < process.argv.length) {
+      to = process.argv[++i];
+    }
+  }
+
+  const result = await generateChangelog({
+    all: hasAll,
+    verbose: hasVerbose,
+    write: hasWrite,
+    output: output || undefined,
+    from: from || undefined,
+    to: to || undefined,
+  });
+
+  if (!result) {
+    console.log('No commits found.');
+    return;
+  }
+
+  if (!hasWrite && !output) {
+    console.log(result);
+  }
+}
