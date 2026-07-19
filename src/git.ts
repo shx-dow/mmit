@@ -43,16 +43,6 @@ export function getGitDiff(maxTokens: number = 8000): DiffResult {
   }
 
   let diff = git('diff --cached');
-  let staged = !!diff;
-
-  if (!diff) {
-    diff = git('diff HEAD');
-  }
-
-  if (!diff) {
-    diff = git('diff');
-  }
-
   if (!diff) {
     return { staged: false, diff: '', truncated: false };
   }
@@ -65,7 +55,7 @@ export function getGitDiff(maxTokens: number = 8000): DiffResult {
     truncated = true;
   }
 
-  return { staged, diff, truncated };
+  return { staged: true, diff, truncated };
 }
 
 function truncateDiff(diff: string, maxTokens: number): string {
@@ -92,8 +82,7 @@ export function stageAllAndDiff(): DiffResult {
 }
 
 export function getDiffStats(): DiffStats {
-  const staged = !!git('diff --cached --stat');
-  const numstat = staged ? git('diff --cached --numstat') : git('diff HEAD --numstat') || git('diff --numstat');
+  const numstat = git('diff --cached --numstat');
   if (!numstat) return { files: 0, insertions: 0, deletions: 0 };
 
   const lines = numstat.split('\n').filter(Boolean);
@@ -124,7 +113,7 @@ export function hasUnstagedChanges(): boolean {
   if (!status) return false;
   return status.split('\n').some(line => {
     if (line.startsWith('??')) return true;
-    if (line.length >= 2 && line[0] === ' ' && line[1] !== ' ') return true;
+    if (line.length >= 2 && line[1] !== ' ') return true;
     return false;
   });
 }
@@ -134,7 +123,7 @@ export function getUnstagedStats(): UnstagedStats {
   if (!status) return { files: 0, names: [], diffs: [] };
   const lines = status.split('\n').filter(line => {
     if (line.startsWith('??')) return true;
-    if (line.length >= 2 && line[0] === ' ' && line[1] !== ' ') return true;
+    if (line.length >= 2 && line[1] !== ' ') return true;
     return false;
   });
   const names = lines.map(l => l.slice(3));
