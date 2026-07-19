@@ -6,24 +6,9 @@ import pico from 'picocolors';
 import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
 import { generateCommitMessage } from './engine.js';
 import { generateChangelog } from './changelog.js';
+import { handleRelease } from './release.js';
 import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo, hasUnstagedChanges, getUnstagedStats } from './git.js';
-
-const LOGO = `\
-                    █▓ █▓▄
- ██▀██▀▓▄ ██▀██▀▓▄ ▄▄▄ ██
- ██ ██ ██ ██ ██ ██  ██ ▀██▄`;
-
-function renderHeader(version: string): string {
-  const lines = LOGO.split('\n');
-  const maxWidth = Math.max(...lines.map(l => l.length));
-  const v = pico.dim(`v${version}`);
-  return pico.dim(lines.map((l, i) => {
-    if (i === 0) return l + ' '.repeat(maxWidth - l.length + 2) + v;
-    return l;
-  }).join('\n'));
-}
-
-const VERSION = '0.1.0';
+import { renderHeader, VERSION } from './logo.js';
 
 export async function run(): Promise<void> {
 
@@ -39,8 +24,14 @@ export async function run(): Promise<void> {
     return;
   }
 
+  // Handle `mmit release` before commander parsing
+  if (process.argv.includes('release')) {
+    await handleRelease();
+    return;
+  }
+
   if (!isGitRepo()) {
-    process.stderr.write(renderHeader(VERSION) + '\n');
+    process.stderr.write(renderHeader() + '\n');
     p.intro('');
     p.outro(pico.red('Not a git repository'));
     process.exit(1);
@@ -85,7 +76,7 @@ export async function run(): Promise<void> {
   const provider = opts.provider || loadConfig().provider || detectProviderFromEnv();
   const model = opts.model;
 
-  process.stderr.write(renderHeader(VERSION) + '\n');
+  process.stderr.write(renderHeader() + '\n');
   p.intro('');
 
   const diffResult = getGitDiff();
@@ -298,7 +289,7 @@ const PROVIDER_INFO: Record<string, { env: string; defaultModel: string }> = {
 };
 
 async function handleInit(): Promise<void> {
-  process.stderr.write(renderHeader(VERSION) + '\n');
+  process.stderr.write(renderHeader() + '\n');
   p.intro('');
 
   const provider = await p.select({
@@ -358,6 +349,8 @@ async function handleInit(): Promise<void> {
 }
 
 async function handleChangelog(): Promise<void> {
+  process.stderr.write(renderHeader() + '\n');
+
   const hasAll = process.argv.includes('--all') || process.argv.includes('-a');
   const hasWrite = process.argv.includes('--write') || process.argv.includes('-w');
   const hasVerbose = process.argv.includes('--verbose') || process.argv.includes('-v');

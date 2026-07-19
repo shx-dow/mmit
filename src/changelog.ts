@@ -8,6 +8,7 @@ export interface ChangelogOptions {
   output?: string;
   from?: string;
   to?: string;
+  version?: string;
 }
 
 interface CommitInfo {
@@ -215,9 +216,9 @@ export async function generateChangelog(options: ChangelogOptions): Promise<stri
     const commits = getCommits(from, to, verbose);
     if (commits.length === 0) return '';
 
-    const version = from === '--root' ? '0.1.0' : 'Unreleased';
+    const versionLabel = options.version || (from === '--root' ? '0.1.0' : 'Unreleased');
     const groups = groupCommits(commits);
-    sections.push(generateMarkdown(groups, version));
+    sections.push(generateMarkdown(groups, versionLabel));
   }
 
   const result = sections.join('\n');
