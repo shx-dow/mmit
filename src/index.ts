@@ -5,7 +5,7 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
 import { generateCommitMessage } from './engine.js';
-import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo } from './git.js';
+import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo, hasUnstagedChanges, getUnstagedStats } from './git.js';
 
 const LOGO = `\
                     █▓ █▓▄
@@ -103,6 +103,43 @@ export async function run(): Promise<void> {
     if (!diff) {
       p.outro(pico.red('No diff to commit.'));
       return;
+    }
+  }
+
+  if (staged && hasUnstagedChanges()) {
+    const unstaged = getUnstagedStats();
+    const files = unstaged.files;
+    const what = `file${files !== 1 ? 's' : ''}`;
+    p.log.warn(`${files} untracked or modified ${what} are not staged`);
+    p.log.message(unstaged.names.map((n, i) => {
+      const dim = pico.dim;
+      const stat = unstaged.diffs[i];
+      const statStr = stat ? dim(` ${stat}`) : '';
+      return `  ${n}${statStr}`;
+    }).join('\n'));
+    const action = await p.select({
+      message: 'What do you want to do?',
+      options: [
+        { value: 'stage', label: 'Stage all and proceed', hint: 'git add -A' },
+        { value: 'staged', label: 'Commit staged only', hint: 'ignore unstaged changes' },
+        { value: 'cancel', label: 'Cancel' },
+      ],
+    });
+
+    if (p.isCancel(action) || action === 'cancel') {
+      p.outro('Cancelled.');
+      return;
+    }
+
+    if (action === 'stage') {
+      const result = stageAllAndDiff();
+      diff = result.diff;
+      staged = result.staged;
+
+      if (!diff) {
+        p.outro(pico.red('No diff to commit.'));
+        return;
+      }
     }
   }
 
@@ -312,3 +349,4 @@ async function handleInit(): Promise<void> {
 
   p.outro(pico.green(`Config saved to ~/.mmit.json`));
 }
+let x = 1;

@@ -12,6 +12,12 @@ export interface DiffStats {
   deletions: number;
 }
 
+export interface UnstagedStats {
+  files: number;
+  names: string[];
+  diffs: string[];
+}
+
 const GIT_OPTS = { encoding: 'utf-8' as const, maxBuffer: 10 * 1024 * 1024, stdio: 'pipe' as const };
 
 export function isGitRepo(): boolean {
@@ -111,4 +117,43 @@ export function createCommit(subject: string, body?: string): string {
     encoding: 'utf-8',
   });
   return git('rev-parse --short HEAD');
+}
+
+export function hasUnstagedChanges(): boolean {
+  const status = git('status --porcelain');
+  if (!status) return false;
+  return status.split('\n').some(line => {
+    if (line.startsWith('??')) return true;
+    if (line.length >= 2 && line[0] === ' ' && line[1] !== ' ') return true;
+    return false;
+  });
+}
+
+export function getUnstagedStats(): UnstagedStats {
+  const status = git('status --porcelain');
+  if (!status) return { files: 0, names: [], diffs: [] };
+  const lines = status.split('\n').filter(line => {
+    if (line.startsWith('??')) return true;
+    if (line.length >= 2 && line[0] === ' ' && line[1] !== ' ') return true;
+    return false;
+  });
+  const names = lines.map(l => l.slice(3));
+  const isUntracked = (n: string) => status.split('\n').some(l => l.startsWith('??') && l.slice(3) === n);
+
+  const numstatRaw = git('diff --numstat');
+  const numstat: Record<string, { ins: number; del: number }> = {};
+  for (const line of numstatRaw.split('\n').filter(Boolean)) {
+    const [ins, del, ...fileParts] = line.split('\t');
+    const file = fileParts.join('\t');
+    numstat[file] = { ins: parseInt(ins, 10) || 0, del: parseInt(del, 10) || 0 };
+  }
+
+  const diffs = names.map(n => {
+    if (isUntracked(n)) return '(new)';
+    const s = numstat[n];
+    if (!s) return '';
+    return `+${s.ins} -${s.del}`;
+  });
+
+  return { files: names.length, names, diffs };
 }
