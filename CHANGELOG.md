@@ -1,9 +1,3 @@
-## Unreleased (2026-07-19)
-
-### Added
-
-- **git:** Add support for detecting and handling unstaged changes
-
 ## v0.1.0 (2026-07-18)
 
 ### Added
