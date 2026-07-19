@@ -39,7 +39,7 @@ export async function run(): Promise<void> {
 
   program
     .name('mmit')
-    .description('AI-powered git commit message generator')
+    .description('AI-powered git workflow tool')
     .version(VERSION)
     .option('-p, --provider <name>', 'AI provider (openai, anthropic, gemini, openrouter)')
     .option('-m, --model <name>', 'Model name override')

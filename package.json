@@ -1,7 +1,8 @@
 {
   "name": "@shxd/mmit",
   "version": "0.1.0",
-  "description": "AI-powered git commit message generator",
+  "description": "AI-powered git workflow tool",
+  "license": "MIT",
   "bin": {
     "mmit": "./bin/mmit"
   },

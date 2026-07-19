@@ -4,9 +4,9 @@
  ██ ██ ██ ██ ██ ██  ██ ▀██▄
 ```
 
-# mmit
+AI-powered git workflow tool.
 
-AI-powered conventional commit message generator. Works with OpenAI, Anthropic, Gemini, and OpenRouter.
+![mmit workflow](screenshot-url)
 
 ```
 mmit
@@ -53,14 +53,51 @@ mmit --dry-run    # preview without committing
 mmit --auto       # skip the interactive prompt
 ```
 
-## Options
+### Options
 
-- `-p, --provider <name>` — Use a specific provider (openai, anthropic, gemini, openrouter)
-- `-m, --model <name>` — Override the default model
-- `--dry-run` — Generate the message without committing
-- `--auto` — Skip the interactive review prompt
-- `--diff-only` — Print the staged diff and exit
-- `--config` — Print the current config
+```
+-p, --provider <name>    AI provider (openai, anthropic, gemini, openrouter)
+-m, --model <name>       Override the default model
+-V, --version            Print version
+--dry-run                Generate without committing
+--auto                   Skip the interactive prompt
+--diff-only              Print the staged diff and exit
+--config                 Print the current config
+```
+
+## Changelog
+
+```bash
+mmit changelog                          # commits since last tag
+mmit changelog --all                    # full changelog for all tags
+mmit changelog --write                  # prepend to CHANGELOG.md
+mmit changelog --verbose                # include internal types (chore, ci, etc.)
+mmit changelog --from v0.1.0 --to v0.2.0  # custom range
+mmit changelog --output RELEASES.md     # custom output path
+```
+
+Groups commits into **Added**, **Fixed**, **Changed**, **Documentation**, and **Breaking Changes** sections. Body bullet points appear as sub-items.
+
+![mmit changelog --all output](screenshot-url)
+
+## Release
+
+```bash
+mmit release                 # auto-detect bump from commits
+mmit release patch           # force patch bump
+mmit release --dry-run       # preview without making changes
+mmit release --no-tag        # skip git tag
+```
+
+Auto-detects the bump type from commits since the last tag:
+
+- Breaking changes (`!` or `BREAKING CHANGE:`) → **major**
+- New features (`feat`) → **minor**
+- Everything else → **patch**
+
+The flow: writes the changelog, bumps `package.json`, commits as `chore(release): v<version>`, and creates a git tag.
+
+![mmit release --dry-run output](screenshot-url)
 
 ## Configuration
 
@@ -82,3 +119,7 @@ Project: `.mmit.json` in the project root (overrides global)
 3. Parses the response into a subject and optional body
 4. Presents the message for review, editing, or regeneration
 5. Commits when you confirm
+
+## License
+
+[MIT](LICENSE)
