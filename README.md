@@ -6,7 +6,7 @@
 
 AI-powered git workflow tool.
 
-![mmit workflow](screenshot-url)
+![mmit workflow](assets/screenshot-workflow.png)
 
 ```
 mmit
@@ -68,17 +68,17 @@ mmit --auto       # skip the interactive prompt
 ## Changelog
 
 ```bash
-mmit changelog                          # commits since last tag
-mmit changelog --all                    # full changelog for all tags
-mmit changelog --write                  # prepend to CHANGELOG.md
-mmit changelog --verbose                # include internal types (chore, ci, etc.)
-mmit changelog --from v0.1.0 --to v0.2.0  # custom range
-mmit changelog --output RELEASES.md     # custom output path
+mmit changelog                           # commits since last tag
+mmit changelog --all                     # full changelog for all tags
+mmit changelog --write                   # prepend to CHANGELOG.md
+mmit changelog --verbose                 # include internal types (chore, ci, etc.)
+mmit changelog --from v0.1.0 --to v0.2.0 # custom range
+mmit changelog --output RELEASES.md      # custom output path
 ```
 
 Groups commits into **Added**, **Fixed**, **Changed**, **Documentation**, and **Breaking Changes** sections. Body bullet points appear as sub-items.
 
-![mmit changelog --all output](screenshot-url)
+![mmit changelog --all output](assets/screenshot-changelog.png)
 
 ## Release
 
@@ -97,7 +97,7 @@ Auto-detects the bump type from commits since the last tag:
 
 The flow: writes the changelog, bumps `package.json`, commits as `chore(release): v<version>`, and creates a git tag.
 
-![mmit release --dry-run output](screenshot-url)
+![mmit release --dry-run output](assets/screenshot-release.png)
 
 ## Configuration
 
