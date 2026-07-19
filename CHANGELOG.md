@@ -1,3 +1,14 @@
+## v0.2.1 (2026-07-19)
+
+### Changed
+
+- **changelog:** Include maintenance commits in release notes
+  - Ensure chore, ci, build, test, and style commits are captured in the changelog under the 'changed' section
+  - Enable verbose mode for changelog generation to improve debugging during release processes
+- **logo:** Sync version with package.json
+  - Automate version management by reading the version directly from package.json
+  - Eliminate the need to manually update the version string in the source code during releases
+
 ## v0.2.0 (2026-07-19)
 
 ### Added
