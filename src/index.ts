@@ -354,6 +354,7 @@ async function handleChangelog(): Promise<void> {
   const hasAll = process.argv.includes('--all') || process.argv.includes('-a');
   const hasWrite = process.argv.includes('--write') || process.argv.includes('-w');
   const hasVerbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+  const hasCompact = process.argv.includes('--compact');
   let output = '';
   let from = '';
   let to = '';
@@ -374,6 +375,7 @@ async function handleChangelog(): Promise<void> {
   const result = await generateChangelog({
     all: hasAll,
     verbose: hasVerbose,
+    compact: hasCompact,
     write: hasWrite,
     output: output || undefined,
     from: from || undefined,

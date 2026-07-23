@@ -70,13 +70,14 @@ export async function handleRelease(): Promise<void> {
   const explicitBump = bumpArg && !bumpArg.startsWith('-') ? bumpArg : undefined;
 
   if (explicitBump && !['patch', 'minor', 'major'].includes(explicitBump)) {
-    console.error('Usage: mmit release [patch|minor|major] [--dry-run] [--no-tag]');
+    console.error('Usage: mmit release [patch|minor|major] [--dry-run] [--no-tag] [--compact]');
     process.exit(1);
     return;
   }
 
   const dryRun = argv.includes('--dry-run');
   const noTag = argv.includes('--no-tag');
+  const compact = argv.includes('--compact');
 
   if (!isGitRepo()) {
     p.outro(pico.red('Not a git repository'));
@@ -120,6 +121,7 @@ export async function handleRelease(): Promise<void> {
     to: 'HEAD',
     version: `v${newVersion}`,
     verbose: true,
+    compact,
   });
 
   if (!changelog) {

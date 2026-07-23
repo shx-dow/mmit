@@ -4,6 +4,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 export interface ChangelogOptions {
   all?: boolean;
   verbose?: boolean;
+  compact?: boolean;
   write?: boolean;
   output?: string;
   from?: string;
@@ -67,15 +68,16 @@ function extractBullets(body: string): string[] {
     .filter(Boolean);
 }
 
-function getCommits(from: string, to: string = 'HEAD', verbose: boolean = false): CommitInfo[] {
+function getCommits(from: string, to: string = 'HEAD', verbose: boolean = false, compact?: boolean): CommitInfo[] {
   const range = from === '--root' ? to : `${from}..${to}`;
-  const raw = git(`log --format="<<<COMMIT>>>%n%H%n%s%n%b" ${range}`);
+  const hashFmt = compact ? '%h' : '%H';
+  const raw = git(`log --format="<<<COMMIT>>>%n${hashFmt}%n%s%n%b" ${range}`);
   if (!raw) return [];
 
   const blocks = raw.split('<<<COMMIT>>>\n').filter(Boolean);
   const commits: CommitInfo[] = [];
 
-  const skipTypes = verbose ? new Set<string>() : new Set(['chore', 'ci', 'build', 'test', 'style']);
+  const skipTypes = (compact || verbose) ? new Set<string>() : new Set(['chore', 'ci', 'build', 'test', 'style']);
 
   for (const block of blocks) {
     const lines = block.split('\n');
@@ -191,39 +193,70 @@ function generateMarkdown(groups: Map<SectionKey, { entry: string; bullets: stri
   return lines.join('\n').trimEnd() + '\n';
 }
 
+function generateCompactMarkdown(commits: CommitInfo[], version: string): string {
+  const date = formatDate();
+  const lines: string[] = [];
+
+  lines.push(`## ${version} (${date})`);
+  lines.push('');
+  for (const c of commits) {
+    lines.push(`${c.hash} ${c.subject}`);
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
 export async function generateChangelog(options: ChangelogOptions): Promise<string> {
   const to = options.to || 'HEAD';
   const verbose = options.verbose || false;
+  const compact = options.compact || false;
   let sections: string[] = [];
 
   if (options.all) {
     const tags = getAllTags();
     if (tags.length === 0) {
-      const commits = getCommits('--root', to, verbose);
+      const commits = getCommits('--root', to, verbose, compact);
+      if (compact) {
+        if (commits.length > 0) sections.push(generateCompactMarkdown(commits, '0.1.0'));
+      } else {
         const groups = groupCommits(commits);
         if (groups.size > 0) sections.push(generateMarkdown(groups, '0.1.0'));
+      }
     } else {
       for (let i = 0; i < tags.length; i++) {
         const from = i < tags.length - 1 ? tags[i + 1] : '--root';
-        const commits = getCommits(from, tags[i], verbose);
-        const groups = groupCommits(commits);
-        if (groups.size > 0) sections.push(generateMarkdown(groups, tags[i]));
+        const commits = getCommits(from, tags[i], verbose, compact);
+        if (compact) {
+          if (commits.length > 0) sections.push(generateCompactMarkdown(commits, tags[i]));
+        } else {
+          const groups = groupCommits(commits);
+          if (groups.size > 0) sections.push(generateMarkdown(groups, tags[i]));
+        }
       }
       const lastTag = tags[0];
-      const unreleased = getCommits(lastTag, to, verbose);
+      const unreleased = getCommits(lastTag, to, verbose, compact);
       if (unreleased.length > 0) {
-        const groups = groupCommits(unreleased);
-        sections.splice(0, 0, generateMarkdown(groups, 'Unreleased'));
+        if (compact) {
+          sections.splice(0, 0, generateCompactMarkdown(unreleased, 'Unreleased'));
+        } else {
+          const groups = groupCommits(unreleased);
+          sections.splice(0, 0, generateMarkdown(groups, 'Unreleased'));
+        }
       }
     }
   } else {
     const from = options.from || getLastTag() || '--root';
-    const commits = getCommits(from, to, verbose);
+    const commits = getCommits(from, to, verbose, compact);
     if (commits.length === 0) return '';
 
     const versionLabel = options.version || (from === '--root' ? '0.1.0' : 'Unreleased');
-    const groups = groupCommits(commits);
-    sections.push(generateMarkdown(groups, versionLabel));
+    if (compact) {
+      sections.push(generateCompactMarkdown(commits, versionLabel));
+    } else {
+      const groups = groupCommits(commits);
+      sections.push(generateMarkdown(groups, versionLabel));
+    }
   }
 
   const result = sections.join('\n');
