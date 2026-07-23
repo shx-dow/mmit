@@ -1,3 +1,12 @@
+## v0.3.0 (2026-07-23)
+
+### Added
+
+- **changelog:** Add compact mode for changelog generation
+  - Introduce a `--compact` option to generate a concise changelog format
+  - Use short git hashes in compact mode to reduce output verbosity
+  - Update CLI and release handlers to support the new flag
+
 ## v0.2.1 (2026-07-19)
 
 ### Changed
