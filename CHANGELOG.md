@@ -1,3 +1,19 @@
+## v0.4.0 (2026-07-25)
+
+### Added
+
+- **cli:** Add `amend` command
+  - Implement interactive commit amending using AI-generated messages
+  - Allow users to stage unstaged changes or regenerate messages for the last commit
+  - Add `amendCommit` and `getLastCommitDiff` utilities to `git.ts`
+  - Integrate `handleAmend` into the main CLI entry point
+
+### Documentation
+
+- **readme:** Improve documentation and project metadata
+  - Enhance README layout with badges, tables, and better formatting for readability
+  - Add repository and homepage fields to package.json to improve package discoverability
+
 ## v0.3.0 (2026-07-23)
 
 ### Added
