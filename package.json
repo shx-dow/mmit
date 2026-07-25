@@ -3,6 +3,11 @@
   "version": "0.3.0",
   "description": "AI-powered git workflow tool",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shx-dow/mmit.git"
+  },
+  "homepage": "https://github.com/shx-dow/mmit#readme",
   "bin": {
     "mmit": "./bin/mmit"
   },

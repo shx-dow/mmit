@@ -1,21 +1,25 @@
-```
-                    █▓ █▓▄
- ██▀██▀▓▄ ██▀██▀▓▄ ▄▄▄ ██
- ██ ██ ██ ██ ██ ██  ██ ▀██▄
-```
+<div align="center">
 
-AI-powered git workflow tool.
+# mmit
 
-![mmit workflow](assets/screenshot-workflow.png)
+**AI-powered git workflow tool**
 
-```
-mmit
-```
+[![npm version](https://img.shields.io/npm/v/@shxd/mmit?style=flat-square&logo=npm)](https://www.npmjs.com/package/@shxd/mmit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+![mmit workflow](https://raw.githubusercontent.com/shx-dow/mmit/main/assets/screenshot-workflow.png)
+
+</div>
+
+---
 
 ## Install
 
 ```bash
 npm install -g @shxd/mmit
+
+# or use directly
+npx @shxd/mmit
 ```
 
 ## Setup
@@ -24,12 +28,16 @@ npm install -g @shxd/mmit
 mmit init
 ```
 
-This walks you through selecting a provider and API key. Alternatively, set an environment variable:
+This walks you through selecting a provider and API key. You can also set an environment variable:
 
-- **OpenAI** — `OPENAI_API_KEY`
-- **Anthropic** — `ANTHROPIC_API_KEY`
-- **Gemini** — `GEMINI_API_KEY`
-- **OpenRouter** — `OPENROUTER_API_KEY`
+| Provider | Environment Variable |
+|----------|---------------------|
+| OpenAI | `OPENAI_API_KEY` |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| Gemini | `GEMINI_API_KEY` |
+| OpenRouter | `OPENROUTER_API_KEY` |
+
+---
 
 ## Usage
 
@@ -46,7 +54,7 @@ mmit analyzes the diff, generates a conventional commit message, and lets you re
 
 When the AI generates a body explaining the change, you can choose to commit with the subject only or include the body.
 
-### Non-interactive
+### Non-interactive mode
 
 ```bash
 mmit --dry-run    # preview without committing
@@ -55,15 +63,17 @@ mmit --auto       # skip the interactive prompt
 
 ### Options
 
-```
--p, --provider <name>    AI provider (openai, anthropic, gemini, openrouter)
--m, --model <name>       Override the default model
--V, --version            Print version
---dry-run                Generate without committing
---auto                   Skip the interactive prompt
---diff-only              Print the staged diff and exit
---config                 Print the current config
-```
+| Flag | Description |
+|------|-------------|
+| `-p, --provider <name>` | AI provider (`openai`, `anthropic`, `gemini`, `openrouter`) |
+| `-m, --model <name>` | Override the default model |
+| `-V, --version` | Print version |
+| `--dry-run` | Generate without committing |
+| `--auto` | Skip the interactive prompt |
+| `--diff-only` | Print the staged diff and exit |
+| `--config` | Print the current config |
+
+---
 
 ## Changelog
 
@@ -78,7 +88,11 @@ mmit changelog --output RELEASES.md      # custom output path
 
 Groups commits into **Added**, **Fixed**, **Changed**, **Documentation**, and **Breaking Changes** sections. Body bullet points appear as sub-items.
 
-![mmit changelog --all output](assets/screenshot-changelog.png)
+<div align="center">
+
+![mmit changelog --all output](https://raw.githubusercontent.com/shx-dow/mmit/main/assets/screenshot-changelog.png)
+
+</div>
 
 ## Release
 
@@ -91,17 +105,23 @@ mmit release --no-tag        # skip git tag
 
 Auto-detects the bump type from commits since the last tag:
 
-- Breaking changes (`!` or `BREAKING CHANGE:`) → **major**
-- New features (`feat`) → **minor**
-- Everything else → **patch**
+- **Breaking changes** (`!` or `BREAKING CHANGE:`) → **major**
+- **New features** (`feat`) → **minor**
+- **Everything else** → **patch**
 
 The flow: writes the changelog, bumps `package.json`, commits as `chore(release): v<version>`, and creates a git tag.
 
-![mmit release --dry-run output](assets/screenshot-release.png)
+<div align="center">
+
+![mmit release --dry-run output](https://raw.githubusercontent.com/shx-dow/mmit/main/assets/screenshot-release.png)
+
+</div>
+
+---
 
 ## Configuration
 
-Global: `~/.mmit.json`
+Global: `~/.mmit.json`  
 Project: `.mmit.json` in the project root (overrides global)
 
 ```json
@@ -111,6 +131,8 @@ Project: `.mmit.json` in the project root (overrides global)
   "commitTypes": ["feat", "fix", "chore", "refactor", "docs", "style", "test", "perf", "ci", "build", "revert"]
 }
 ```
+
+---
 
 ## How it works
 
