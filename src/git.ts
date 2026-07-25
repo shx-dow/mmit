@@ -96,6 +96,22 @@ export function getDiffStats(): DiffStats {
   return { files, insertions, deletions };
 }
 
+export function amendCommit(subject: string, body?: string): string {
+  const esc = (s: string) => s.replace(/["`$\\]/g, '\\$&');
+  const cmd = body
+    ? `git commit --amend -m "${esc(subject)}" -m "${esc(body)}"`
+    : `git commit --amend -m "${esc(subject)}"`;
+  execSync(cmd, {
+    stdio: 'inherit',
+    encoding: 'utf-8',
+  });
+  return git('rev-parse --short HEAD');
+}
+
+export function getLastCommitDiff(): string {
+  return git('diff HEAD~1..HEAD');
+}
+
 export function createCommit(subject: string, body?: string): string {
   const esc = (s: string) => s.replace(/["`$\\]/g, '\\$&');
   const cmd = body

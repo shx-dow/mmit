@@ -8,6 +8,7 @@ import { generateCommitMessage } from './engine.js';
 import { generateChangelog } from './changelog.js';
 import { handleRelease } from './release.js';
 import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo, hasUnstagedChanges, getUnstagedStats } from './git.js';
+import { handleAmend } from './amend.js';
 import { renderHeader, VERSION } from './logo.js';
 
 export async function run(): Promise<void> {
@@ -27,6 +28,12 @@ export async function run(): Promise<void> {
   // Handle `mmit release` before commander parsing
   if (process.argv.includes('release')) {
     await handleRelease();
+    return;
+  }
+
+  // Handle `mmit amend` before commander parsing
+  if (process.argv.includes('amend')) {
+    await handleAmend();
     return;
   }
 
