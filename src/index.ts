@@ -5,6 +5,7 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
 import { generateCommitMessage } from './engine.js';
+import { runComposer } from './composer.js';
 import { generateChangelog } from './changelog.js';
 import { handleRelease } from './release.js';
 import { getGitDiff, stageAllAndDiff, createCommit, getDiffStats, isGitRepo, hasUnstagedChanges, getUnstagedStats } from './git.js';
@@ -186,113 +187,17 @@ export async function run(): Promise<void> {
 
   spin.stop('Done');
 
-  p.log.step(pico.dim(`${msg.provider} · ${msg.model}`));
-
-  // Interactive loop
-  while (true) {
-    p.log.step(msg.subject);
-    if (msg.body) {
-      const bullets = msg.body
-        .split('\n')
-        .map(l => `  ${l.replace(/^-\s*/, '• ')}`)
-        .join('\n');
-      p.log.message(bullets);
-    }
-
-    if (opts.dryRun || opts.auto || loadConfig().autoConfirm) {
-      if (opts.dryRun) {
-        console.log(msg.body ? `${msg.subject}\n\n${msg.body}` : msg.subject);
-        p.outro('Dry-run — not committing.');
-      } else {
-        const hash = createCommit(msg.subject, msg.body);
-        p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
-      }
-      break;
-    }
-
-    const action = await p.select({
-      message: 'What do you want to do?',
-      options: [
-        { value: 'subject', label: 'Commit (subject only)', hint: 'first line only' },
-        ...(msg.body ? [{ value: 'body', label: 'Commit (subject + body)', hint: 'includes body' }] : []),
-        { value: 'edit', label: 'Edit', hint: 'edit the message manually' },
-        { value: 'regenerate', label: 'Regenerate', hint: 'generate a new message' },
-        { value: 'cancel', label: 'Cancel' },
-      ],
-    });
-
-    if (p.isCancel(action) || action === 'cancel') {
-      p.outro('Cancelled.');
-      break;
-    }
-
-    if (action === 'subject') {
-      const hash = createCommit(msg.subject, undefined);
-      p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
-      break;
-    }
-
-    if (action === 'body') {
-      const hash = createCommit(msg.subject, msg.body);
-      p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
-      break;
-    }
-
-    if (action === 'regenerate') {
-      spin.start('Regenerating...');
-      try {
-        msg = await generateCommitMessage(diff, diffResult.truncated, provider, model);
-      } catch (err: unknown) {
-        spin.stop('Error');
-        const message = err instanceof Error ? err.message : String(err);
-        p.outro(pico.red(`Generation failed: ${message}`));
-        process.exit(1);
-      }
-      spin.stop('Done');
-      continue;
-    }
-
-    if (action === 'edit') {
-      const editedSubject = await p.text({
-        message: 'Edit the commit subject',
-        initialValue: msg.subject,
-        validate: (val: string) => {
-          if (!val.trim()) return 'Message cannot be empty';
-        },
-      });
-
-      if (p.isCancel(editedSubject)) {
-        continue;
-      }
-
-      msg.subject = editedSubject.trim();
-
-      const editBody = await p.confirm({
-        message: msg.body ? 'Edit the body too?' : 'Add a body?',
-        initialValue: !!msg.body,
-      });
-
-      if (p.isCancel(editBody)) {
-        continue;
-      }
-
-      if (editBody) {
-        const editedBody = await p.text({
-          message: msg.body ? 'Edit the commit body (leave empty to remove)' : 'Add a commit body (optional)',
-          initialValue: msg.body,
-          placeholder: 'optional — explain why, not how',
-        });
-
-        if (p.isCancel(editedBody)) {
-          continue;
-        }
-
-        msg.body = (editedBody as string).trim() || undefined;
-      }
-
-      continue;
-    }
-  }
+  await runComposer({
+    message: msg,
+    verb: 'Commit',
+    verbPast: 'Committed',
+    dryRunNote: 'not committing.',
+    statsNote: `  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`,
+    dryRun: !!opts.dryRun,
+    auto: !!(opts.auto || loadConfig().autoConfirm),
+    regenerate: () => generateCommitMessage(diff, diffResult.truncated, provider, model),
+    commit: createCommit,
+  });
 }
 
 const PROVIDER_INFO: Record<string, { env: string; defaultModel: string }> = {

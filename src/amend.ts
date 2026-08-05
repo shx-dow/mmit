@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { generateCommitMessage } from './engine.js';
+import { runComposer } from './composer.js';
 import { loadConfig, detectProviderFromEnv } from './config.js';
 import {
   getGitDiff,
@@ -130,104 +131,17 @@ export async function handleAmend(): Promise<void> {
 
   spin.stop('Done');
 
-  p.log.step(pico.dim(`${msg.provider} · ${msg.model}`));
+  const statsNote = lastCommitOnly ? '' : `  (${statsLine}, ${pico.green(`+${getDiffStats().insertions}`)} ${pico.red(`-${getDiffStats().deletions}`)})`;
 
-  // Interactive loop
-  while (true) {
-    p.log.step(msg.subject);
-    if (msg.body) {
-      const bullets = msg.body
-        .split('\n')
-        .map(l => `  ${l.replace(/^-\s*/, '• ')}`)
-        .join('\n');
-      p.log.message(bullets);
-    }
-
-    if (dryRun || auto || loadConfig().autoConfirm) {
-      if (dryRun) {
-        console.log(msg.body ? `${msg.subject}\n\n${msg.body}` : msg.subject);
-        p.outro('Dry-run — not amending.');
-      } else {
-        const hash = amendCommit(msg.subject, msg.body);
-        p.outro(pico.green(`Amended as ${hash}${lastCommitOnly ? '' : `  (${statsLine}, ${pico.green(`+${getDiffStats().insertions}`)} ${pico.red(`-${getDiffStats().deletions}`)})`}`));
-      }
-      break;
-    }
-
-    const action = await p.select({
-      message: 'What do you want to do?',
-      options: [
-        { value: 'subject', label: 'Amend (subject only)', hint: 'first line only' },
-        ...(msg.body ? [{ value: 'body', label: 'Amend (subject + body)', hint: 'includes body' }] : []),
-        { value: 'edit', label: 'Edit', hint: 'edit the message manually' },
-        { value: 'regenerate', label: 'Regenerate', hint: 'generate a new message' },
-        { value: 'cancel', label: 'Cancel' },
-      ],
-    });
-
-    if (p.isCancel(action) || action === 'cancel') {
-      p.outro('Cancelled.');
-      break;
-    }
-
-    if (action === 'subject') {
-      const hash = amendCommit(msg.subject, undefined);
-      p.outro(pico.green(`Amended as ${hash}${lastCommitOnly ? '' : `  (${statsLine}, ${pico.green(`+${getDiffStats().insertions}`)} ${pico.red(`-${getDiffStats().deletions}`)})`}`));
-      break;
-    }
-
-    if (action === 'body') {
-      const hash = amendCommit(msg.subject, msg.body);
-      p.outro(pico.green(`Amended as ${hash}${lastCommitOnly ? '' : `  (${statsLine}, ${pico.green(`+${getDiffStats().insertions}`)} ${pico.red(`-${getDiffStats().deletions}`)})`}`));
-      break;
-    }
-
-    if (action === 'regenerate') {
-      spin.start('Regenerating...');
-      try {
-        msg = await generateCommitMessage(diff, truncated, provider, model);
-      } catch (err: unknown) {
-        spin.stop('Error');
-        const message = err instanceof Error ? err.message : String(err);
-        p.outro(pico.red(`Generation failed: ${message}`));
-        process.exit(1);
-      }
-      spin.stop('Done');
-      continue;
-    }
-
-    if (action === 'edit') {
-      const edited = await p.text({
-        message: 'Edit the commit message',
-        initialValue: msg.subject,
-        validate: (val: string) => {
-          if (!val.trim()) return 'Message cannot be empty';
-        },
-      });
-
-      if (p.isCancel(edited)) {
-        continue;
-      }
-
-      msg.subject = edited.trim();
-      p.log.step(msg.subject);
-
-      const confirmEdit = await p.confirm({
-        message: 'Amend with this message?',
-        initialValue: true,
-      });
-
-      if (p.isCancel(confirmEdit)) {
-        continue;
-      }
-
-      if (confirmEdit) {
-        const hash = amendCommit(msg.subject, msg.body);
-        p.outro(pico.green(`Amended as ${hash}${lastCommitOnly ? '' : `  (${statsLine}, ${pico.green(`+${getDiffStats().insertions}`)} ${pico.red(`-${getDiffStats().deletions}`)})`}`));
-        break;
-      }
-
-      continue;
-    }
-  }
+  await runComposer({
+    message: msg,
+    verb: 'Amend',
+    verbPast: 'Amended',
+    dryRunNote: 'not amending.',
+    statsNote,
+    dryRun,
+    auto: !!(auto || loadConfig().autoConfirm),
+    regenerate: () => generateCommitMessage(diff, truncated, provider, model),
+    commit: amendCommit,
+  });
 }
