@@ -1,3 +1,16 @@
+## v0.5.0 (2026-08-05)
+
+### Added
+
+- **cli:** Allow editing of commit body during interactive flow
+
+### Changed
+
+- **composer:** Extract interactive commit/amend logic
+  - Consolidate redundant interactive loops in `index.ts` and `amend.ts` into a single `runComposer` utility.
+  - Improve user experience by allowing body editing during the manual edit flow.
+  - Reduce code duplication and simplify maintenance of the commit message generation interface.
+
 ## v0.4.0 (2026-07-25)
 
 ### Added
