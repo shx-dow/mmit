@@ -253,34 +253,41 @@ export async function run(): Promise<void> {
     }
 
     if (action === 'edit') {
-      const edited = await p.text({
-        message: 'Edit the commit message',
+      const editedSubject = await p.text({
+        message: 'Edit the commit subject',
         initialValue: msg.subject,
         validate: (val: string) => {
           if (!val.trim()) return 'Message cannot be empty';
         },
       });
 
-      if (p.isCancel(edited)) {
+      if (p.isCancel(editedSubject)) {
         continue;
       }
 
-      msg.subject = edited.trim();
-      p.log.step(msg.subject);
+      msg.subject = editedSubject.trim();
 
-      const confirmEdit = await p.confirm({
-        message: 'Commit with this message?',
-        initialValue: true,
+      const editBody = await p.confirm({
+        message: msg.body ? 'Edit the body too?' : 'Add a body?',
+        initialValue: !!msg.body,
       });
 
-      if (p.isCancel(confirmEdit)) {
+      if (p.isCancel(editBody)) {
         continue;
       }
 
-      if (confirmEdit) {
-        const hash = createCommit(msg.subject, msg.body);
-        p.outro(pico.green(`Committed as ${hash}  (${statsLine}, ${pico.green(`+${diffStats.insertions}`)} ${pico.red(`-${diffStats.deletions}`)})`));
-        break;
+      if (editBody) {
+        const editedBody = await p.text({
+          message: msg.body ? 'Edit the commit body (leave empty to remove)' : 'Add a commit body (optional)',
+          initialValue: msg.body,
+          placeholder: 'optional — explain why, not how',
+        });
+
+        if (p.isCancel(editedBody)) {
+          continue;
+        }
+
+        msg.body = (editedBody as string).trim() || undefined;
       }
 
       continue;
