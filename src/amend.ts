@@ -3,7 +3,8 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { generateCommitMessage } from './engine.js';
 import { runComposer } from './composer.js';
-import { loadConfig, detectProviderFromEnv } from './config.js';
+import { loadConfig } from './config.js';
+import { detectProviderFromEnv } from './provider.js';
 import {
   getGitDiff,
   stageAllAndDiff,

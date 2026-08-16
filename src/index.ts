@@ -3,7 +3,8 @@
 import { program } from 'commander';
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
-import { loadConfig, saveGlobalConfig, detectProviderFromEnv } from './config.js';
+import { loadConfig, saveGlobalConfig } from './config.js';
+import { detectProviderFromEnv } from './provider.js';
 import { generateCommitMessage } from './engine.js';
 import { runComposer } from './composer.js';
 import { generateChangelog } from './changelog.js';

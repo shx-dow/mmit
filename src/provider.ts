@@ -10,6 +10,8 @@ export interface ProviderConfig {
 
 export interface Provider {
   name: string;
+  envKey: string;
+  defaultModel: string;
   generate(prompt: string, config: ProviderConfig): Promise<string>;
 }
 
@@ -17,6 +19,8 @@ const systemPrompt = 'You are a git commit message generator. Respond only with 
 
 const openaiProvider: Provider = {
   name: 'openai',
+  envKey: 'OPENAI_API_KEY',
+  defaultModel: 'gpt-4o-mini',
   async generate(prompt, config) {
     const client = new OpenAI({ apiKey: config.apiKey });
     const res = await client.chat.completions.create({
@@ -34,6 +38,8 @@ const openaiProvider: Provider = {
 
 const anthropicProvider: Provider = {
   name: 'anthropic',
+  envKey: 'ANTHROPIC_API_KEY',
+  defaultModel: 'claude-sonnet-4-20250514',
   async generate(prompt, config) {
     const client = new Anthropic({ apiKey: config.apiKey });
     const res = await client.messages.create({
@@ -50,6 +56,8 @@ const anthropicProvider: Provider = {
 
 const geminiProvider: Provider = {
   name: 'gemini',
+  envKey: 'GEMINI_API_KEY',
+  defaultModel: 'gemini-3.1-flash-lite',
   async generate(prompt, config) {
     const genAI = new GoogleGenerativeAI(config.apiKey);
     const model = genAI.getGenerativeModel({
@@ -69,6 +77,8 @@ const geminiProvider: Provider = {
 
 const openrouterProvider: Provider = {
   name: 'openrouter',
+  envKey: 'OPENROUTER_API_KEY',
+  defaultModel: 'openrouter/free',
   async generate(prompt, config) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -119,3 +129,14 @@ export const providers: Record<string, Provider> = {
   gemini: geminiProvider,
   openrouter: openrouterProvider,
 };
+
+export function detectProviderFromEnv(preferred?: string): string | null {
+  const order = preferred && providers[preferred]
+    ? [preferred, ...Object.keys(providers).filter(k => k !== preferred)]
+    : Object.keys(providers);
+
+  for (const name of order) {
+    if (process.env[providers[name].envKey]) return name;
+  }
+  return null;
+}

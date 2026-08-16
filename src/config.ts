@@ -65,23 +65,3 @@ export function saveGlobalConfig(config: Config): void {
   writeFileSync(GLOBAL_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
   cached = config;
 }
-
-const ENV_KEY_MAP: Record<string, string> = {
-  openai: 'OPENAI_API_KEY',
-  anthropic: 'ANTHROPIC_API_KEY',
-  gemini: 'GEMINI_API_KEY',
-  openrouter: 'OPENROUTER_API_KEY',
-};
-
-export function detectProviderFromEnv(preferred?: string): string | null {
-  const order = preferred && ENV_KEY_MAP[preferred]
-    ? [preferred, ...Object.keys(ENV_KEY_MAP).filter(k => k !== preferred)]
-    : Object.keys(ENV_KEY_MAP);
-
-  for (const name of order) {
-    if (process.env[ENV_KEY_MAP[name]]) return name;
-  }
-  return null;
-}
-
-export { ENV_KEY_MAP as envKeyMap };

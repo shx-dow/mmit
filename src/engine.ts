@@ -1,6 +1,6 @@
-import { providers } from './provider.js';
+import { providers, detectProviderFromEnv } from './provider.js';
 import type { ProviderConfig } from './provider.js';
-import { loadConfig, detectProviderFromEnv, envKeyMap } from './config.js';
+import { loadConfig } from './config.js';
 
 export interface GeneratedMessage {
   subject: string;
@@ -99,20 +99,12 @@ export async function generateCommitMessage(
     throw new Error(`Unknown provider "${providerName}". Available: ${Object.keys(providers).join(', ')}`);
   }
 
-  const apiKey = process.env[envKeyMap[providerName]] || config.apiKey;
+  const apiKey = process.env[providers[providerName].envKey] || config.apiKey;
   if (!apiKey) {
-    throw new Error(`Missing ${envKeyMap[providerName]} for provider "${providerName}". Run \`mmit init\` to set one up.`);
+    throw new Error(`Missing ${providers[providerName].envKey} for provider "${providerName}". Run \`mmit init\` to set one up.`);
   }
 
-  // Determine model with good defaults
-  const defaultModels: Record<string, string> = {
-    openai: 'gpt-4o-mini',
-    anthropic: 'claude-sonnet-4-20250514',
-    gemini: 'gemini-3.1-flash-lite',
-    openrouter: 'openrouter/free',
-  };
-
-  const model = overrideModel || config.model || defaultModels[providerName];
+  const model = overrideModel || config.model || providers[providerName].defaultModel;
 
   const providerConfig: ProviderConfig = {
     apiKey,
