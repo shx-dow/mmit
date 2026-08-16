@@ -29,7 +29,7 @@ export function isGitRepo(): boolean {
   }
 }
 
-function git(args: string): string {
+export function git(args: string): string {
   try {
     return execSync(`git ${args}`, GIT_OPTS).trim();
   } catch {
