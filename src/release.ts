@@ -1,54 +1,10 @@
-import { execSync } from 'node:child_process';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { generateChangelog } from './changelog.js';
-import { isGitRepo } from './git.js';
+import { isGitRepo, git } from './git.js';
+import { getLastTag, detectBump } from './history.js';
 import { renderHeader } from './logo.js';
-
-const GIT_OPTS = { encoding: 'utf-8' as const, maxBuffer: 10 * 1024 * 1024, stdio: 'pipe' as const };
-
-function git(args: string): string {
-  try {
-    return execSync(`git ${args}`, GIT_OPTS).trim();
-  } catch {
-    return '';
-  }
-}
-
-function getLastTag(): string | null {
-  const tag = git('describe --tags --abbrev=0 2>/dev/null');
-  return tag || null;
-}
-
-const COMMIT_PARSE = /^([a-zA-Z]+)(\([a-zA-Z0-9_.\-,/]+\))?!?:\s(.+)/;
-const BREAKING_FOOTER = /^BREAKING[-\s]CHANGE:/m;
-
-function detectBump(lastTag: string | null): 'patch' | 'minor' | 'major' {
-  const range = lastTag ? `${lastTag}..HEAD` : 'HEAD';
-  const raw = git(`log --format="%s###BODY###%b###END###" ${range}`);
-  if (!raw) return 'patch';
-
-  const blocks = raw.split('###END###\n').filter(Boolean);
-  let hasFeat = false;
-
-  for (const block of blocks) {
-    const [subjectLine, ...rest] = block.split('###BODY###');
-    const subject = subjectLine.trim();
-    const body = rest.join('###BODY###').trim();
-
-    const m = subject.match(COMMIT_PARSE);
-    if (!m) continue;
-
-    const full = m[0];
-    const type = m[1];
-
-    if (full.includes('!') || BREAKING_FOOTER.test(body)) return 'major';
-    if (type === 'feat') hasFeat = true;
-  }
-
-  return hasFeat ? 'minor' : 'patch';
-}
 
 function bumpVersion(version: string, bump: 'patch' | 'minor' | 'major'): string {
   const parts = version.split('.').map(Number);
@@ -62,22 +18,26 @@ function bumpVersion(version: string, bump: 'patch' | 'minor' | 'major'): string
   }
 }
 
-export async function handleRelease(): Promise<void> {
+export interface ReleaseOptions {
+  bump?: string;
+  dryRun?: boolean;
+  noTag?: boolean;
+  compact?: boolean;
+}
+
+export async function handleRelease(opts: ReleaseOptions): Promise<void> {
   process.stderr.write(renderHeader() + '\n');
 
-  const argv = process.argv;
-  const bumpArg = argv[argv.indexOf('release') + 1];
-  const explicitBump = bumpArg && !bumpArg.startsWith('-') ? bumpArg : undefined;
-
+  const explicitBump = opts.bump;
   if (explicitBump && !['patch', 'minor', 'major'].includes(explicitBump)) {
     console.error('Usage: mmit release [patch|minor|major] [--dry-run] [--no-tag] [--compact]');
     process.exit(1);
     return;
   }
 
-  const dryRun = argv.includes('--dry-run');
-  const noTag = argv.includes('--no-tag');
-  const compact = argv.includes('--compact');
+  const dryRun = !!opts.dryRun;
+  const noTag = !!opts.noTag;
+  const compact = !!opts.compact;
 
   if (!isGitRepo()) {
     p.outro(pico.red('Not a git repository'));
@@ -111,7 +71,7 @@ export async function handleRelease(): Promise<void> {
   }
 
   const lastTag = getLastTag();
-  const bump: 'patch' | 'minor' | 'major' = explicitBump as any || detectBump(lastTag);
+  const bump: 'patch' | 'minor' | 'major' = (explicitBump as 'patch' | 'minor' | 'major') || detectBump(lastTag ?? undefined);
   const newVersion = bumpVersion(currentVersion, bump);
 
   p.log.step(`Release: ${pico.dim(currentVersion)} ${pico.dim('→')} ${pico.green(`v${newVersion}`)} ${pico.dim(`(${bump})`)}`);

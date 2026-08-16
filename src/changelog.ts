@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { getCommits, getLastTag, getAllTags } from './history.js';
 import type { Commit } from './history.js';
+import { renderHeader } from './logo.js';
 
 export interface ChangelogOptions {
   all?: boolean;
@@ -173,4 +174,37 @@ export async function generateChangelog(options: ChangelogOptions): Promise<stri
   }
 
   return result;
+}
+
+export interface ChangelogCliOptions {
+  all?: boolean;
+  write?: boolean;
+  verbose?: boolean;
+  compact?: boolean;
+  output?: string;
+  from?: string;
+  to?: string;
+}
+
+export async function handleChangelog(opts: ChangelogCliOptions): Promise<void> {
+  process.stderr.write(renderHeader() + '\n');
+
+  const result = await generateChangelog({
+    all: opts.all,
+    verbose: opts.verbose,
+    compact: opts.compact,
+    write: opts.write,
+    output: opts.output,
+    from: opts.from,
+    to: opts.to,
+  });
+
+  if (!result) {
+    console.log('No commits found.');
+    return;
+  }
+
+  if (!opts.write && !opts.output) {
+    console.log(result);
+  }
 }
