@@ -1,22 +1,16 @@
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
-
-export interface ComposerMessage {
-  subject: string;
-  body?: string;
-  provider: string;
-  model: string;
-}
+import type { GeneratedMessage } from './engine.js';
 
 export interface ComposerOptions {
-  message: ComposerMessage;
+  message: GeneratedMessage;
   verb: string;
   verbPast: string;
   dryRunNote: string;
   statsNote: string;
   dryRun: boolean;
   auto: boolean;
-  regenerate: () => Promise<ComposerMessage>;
+  regenerate: () => Promise<GeneratedMessage>;
   commit: (subject: string, body?: string) => string;
 }
 
