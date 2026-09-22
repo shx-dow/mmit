@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
-import type { GeneratedMessage } from './engine.js';
+import type { GeneratedMessage, VariationOptions } from './engine.js';
 
 export interface ComposerOptions {
   message: GeneratedMessage;
@@ -10,12 +10,14 @@ export interface ComposerOptions {
   statsNote: string;
   dryRun: boolean;
   auto: boolean;
-  regenerate: () => Promise<GeneratedMessage>;
+  regenerate: (variation?: VariationOptions) => Promise<GeneratedMessage>;
   commit: (subject: string, body?: string) => string;
 }
 
 export async function runComposer(opts: ComposerOptions): Promise<void> {
   const msg = opts.message;
+  const previousSubjects: string[] = [];
+  let regenAttempt = 0;
 
   p.log.step(pico.dim(`${msg.provider} · ${msg.model}`));
 
@@ -69,10 +71,47 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
     }
 
     if (action === 'regenerate') {
+      const direction = await p.select({
+        message: 'What should change?',
+        options: [
+          { value: 'different', label: 'Different angle', hint: 'default' },
+          { value: 'shorter', label: 'Shorter subject', hint: 'aim under 50 chars' },
+          { value: 'type', label: 'Different type', hint: 'rethink feat/fix/refactor' },
+          { value: 'scope', label: 'Different scope', hint: 'rethink the (scope)' },
+          { value: 'body', label: 'Toggle body', hint: msg.body ? 'drop the body' : 'add a body' },
+          { value: 'custom', label: 'Custom hint...', hint: 'type your own focus' },
+        ],
+      });
+
+      if (p.isCancel(direction)) {
+        continue;
+      }
+
+      let hint: string | undefined;
+      if (direction === 'shorter') hint = 'Keep the subject shorter and more direct.';
+      else if (direction === 'type') hint = 'Reconsider the commit type — try a different one.';
+      else if (direction === 'scope') hint = 'Reconsider the scope — try a different or no scope.';
+      else if (direction === 'body') {
+        hint = msg.body
+          ? 'Respond with ONLY the subject line, no body.'
+          : 'Include a body with bullet points explaining why.';
+      } else if (direction === 'custom') {
+        const custom = await p.text({
+          message: 'What should the message focus on? (what to avoid?)',
+          placeholder: 'e.g. focus on the API change, not the tests',
+        });
+        if (p.isCancel(custom)) continue;
+        hint = (custom as string).trim() || undefined;
+      }
+
+      previousSubjects.push(msg.subject);
+      regenAttempt += 1;
+      const temperature = Math.min(0.3 + 0.4 * regenAttempt, 1.0);
+
       const spin = p.spinner();
       spin.start('Regenerating...');
       try {
-        const next = await opts.regenerate();
+        const next = await opts.regenerate({ temperature, avoid: [...previousSubjects], hint });
         msg.subject = next.subject;
         msg.body = next.body;
         msg.provider = next.provider;

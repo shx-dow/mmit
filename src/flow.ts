@@ -182,7 +182,7 @@ export async function runFlow(opts: FlowOptions): Promise<void> {
     statsNote,
     dryRun: opts.dryRun,
     auto: opts.auto,
-    regenerate: () => generateCommitMessage(diff, truncated, provider, model),
+    regenerate: (variation) => generateCommitMessage(diff, truncated, provider, model, variation),
     commit: opts.commit,
   });
 }

@@ -49,17 +49,42 @@ function splitSubjectBody(raw: string): { subject: string; body?: string } {
   return { subject, body: rest || undefined };
 }
 
+export interface VariationOptions {
+  temperature?: number;
+  avoid?: string[];
+  hint?: string;
+}
+
+function renderVariation(variation?: VariationOptions): string {
+  if (!variation) return '';
+  const lines: string[] = [];
+  if (variation.avoid && variation.avoid.length > 0) {
+    lines.push('Provide a DIFFERENT message from previous attempts.');
+    for (const s of variation.avoid.slice(-5)) {
+      lines.push(`- Avoid: "${s}"`);
+    }
+  }
+  if (variation.hint) {
+    lines.push(`Focus: ${variation.hint}`);
+  }
+  if (lines.length === 0) return '';
+  return `\nVariation guidance:\n${lines.join('\n')}\n`;
+}
+
 function buildPrompt(
   diff: string,
   commitTypes: string[],
   truncated: boolean,
   strict: boolean = false,
+  variation?: VariationOptions,
 ): string {
   const types = commitTypes.join(', ');
 
   const strictRule = strict
     ? '\nCRITICAL: Respond with ONLY the first line of the commit message. No body, no explanations.'
     : '\nYou may optionally include a body paragraph explaining the change.';
+
+  const variationBlock = renderVariation(variation);
 
   return `Generate a conventional commit message for the following git diff.
 
@@ -100,7 +125,7 @@ Rules:
 - Use footers for issue references (Closes, Refs), breaking changes (BREAKING CHANGE:), and co-authors
 - For breaking changes, add "!" after the type/scope AND optionally a BREAKING CHANGE footer
 - Respond with only the commit message — no intro, no explanation${strictRule}
-
+${variationBlock}
 ${truncated ? '(Note: the diff was truncated due to size. Generate a message for what is visible.)\n' : ''}
 Diff:
 ${diff}`;
@@ -111,6 +136,7 @@ export async function generateCommitMessage(
   truncated: boolean,
   overrideProvider?: string,
   overrideModel?: string,
+  variation?: VariationOptions,
 ): Promise<GeneratedMessage> {
   const config = loadConfig();
   const commitTypes = config.commitTypes ?? [];
@@ -140,10 +166,11 @@ export async function generateCommitMessage(
     apiKey,
     model,
     maxTokens: 500,
+    temperature: variation?.temperature,
   };
 
   async function generateOnce(strict: boolean): Promise<{ raw: string; parsed: { subject: string; body?: string } }> {
-    const prompt = buildPrompt(diff, commitTypes, truncated, strict);
+    const prompt = buildPrompt(diff, commitTypes, truncated, strict, variation);
     let lastErr: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
