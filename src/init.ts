@@ -53,13 +53,16 @@ export async function handleInit(): Promise<void> {
 
   if (p.isCancel(model)) return;
 
-  const config = loadConfig();
-  config.provider = provider as string;
-  config.model = (model as string).trim();
+  const prev = loadConfig();
+  const next = { ...prev };
+  next.provider = provider as string;
+  next.model = (model as string).trim();
   if (apiKey && !process.env[info.envKey]) {
-    config.apiKey = apiKey;
+    next.apiKey = apiKey;
+  } else {
+    delete next.apiKey;
   }
-  saveGlobalConfig(config);
+  saveGlobalConfig(next);
 
   p.outro(pico.green(`Config saved to ~/.mmit.json`));
 }

@@ -1,8 +1,9 @@
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { generateChangelog } from './changelog.js';
-import { isGitRepo, git } from './git.js';
+import { isGitRepo, gitOptional, git } from './git.js';
 import { getLastTag, detectBump } from './history.js';
 import { renderHeader } from './logo.js';
 
@@ -45,23 +46,28 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
     return;
   }
 
-  if (!dryRun) {
-    const status = git('status --porcelain');
-    if (status) {
-      p.outro(pico.red('Working directory is not clean. Commit or stash changes first.'));
-      process.exit(1);
-      return;
-    }
+  const status = gitOptional(['status', '--porcelain']);
+  if (status) {
+    p.outro(pico.red('Working directory is not clean. Commit or stash changes first.'));
+    process.exit(1);
+    return;
   }
 
-  const pkgPath = process.cwd() + '/package.json';
+  const pkgPath = join(process.cwd(), 'package.json');
   if (!existsSync(pkgPath)) {
     p.outro(pico.red('No package.json found in current directory'));
     process.exit(1);
     return;
   }
 
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+  let pkg: { version?: string };
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+  } catch {
+    p.outro(pico.red('package.json is not valid JSON'));
+    process.exit(1);
+    return;
+  }
   const currentVersion = pkg.version as string;
 
   if (!currentVersion) {
@@ -93,7 +99,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
   p.log.message(changelog);
 
   if (dryRun) {
-    p.log.step(`${pico.dim('git add -A')}`);
+    p.log.step(`${pico.dim('git add CHANGELOG.md package.json')}`);
     p.log.step(`${pico.dim(`git commit -m "chore(release): v${newVersion}"`)}`);
     if (!noTag) p.log.step(`${pico.dim(`git tag v${newVersion}`)}`);
     p.outro(pico.green('Dry-run — no changes made'));
@@ -111,7 +117,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
   }
 
   p.log.step('Writing changelog...');
-  const changelogPath = process.cwd() + '/CHANGELOG.md';
+  const changelogPath = join(process.cwd(), 'CHANGELOG.md');
   const existing = existsSync(changelogPath) ? readFileSync(changelogPath, 'utf-8') : '';
   writeFileSync(changelogPath, changelog + '\n' + existing);
 
@@ -120,10 +126,10 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
   p.log.step('Committing...');
-  git('add -A');
-  git(`commit -m "chore(release): v${newVersion}"`);
+  git(['add', 'CHANGELOG.md', 'package.json']);
+  git(['commit', '-m', `chore(release): v${newVersion}`]);
 
-  const hash = git('rev-parse --short HEAD');
+  const hash = gitOptional(['rev-parse', '--short', 'HEAD']);
   if (!hash) {
     p.outro(pico.red('Commit failed'));
     process.exit(1);
@@ -132,7 +138,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
 
   if (!noTag) {
     p.log.step('Tagging...');
-    git(`tag v${newVersion}`);
+    git(['tag', `v${newVersion}`]);
   }
 
   p.outro(pico.green(`Released v${newVersion}  (${hash})${noTag ? '' : ' · tagged'} `));

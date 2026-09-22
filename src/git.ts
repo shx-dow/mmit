@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 export interface DiffResult {
   staged: boolean;
@@ -20,18 +20,41 @@ export interface UnstagedStats {
 
 const GIT_OPTS = { encoding: 'utf-8' as const, maxBuffer: 10 * 1024 * 1024, stdio: 'pipe' as const };
 
+export class GitError extends Error {
+  constructor(
+    public args: string[],
+    message: string,
+  ) {
+    super(message);
+    this.name = 'GitError';
+  }
+}
+
 export function isGitRepo(): boolean {
   try {
-    execSync('git rev-parse --git-dir', { stdio: 'pipe', encoding: 'utf-8' });
+    execFileSync('git', ['rev-parse', '--git-dir'], { stdio: 'pipe', encoding: 'utf-8' });
     return true;
   } catch {
     return false;
   }
 }
 
-export function git(args: string): string {
+/** Run git with argv (no shell). Throws GitError on failure. Returns trimmed stdout (may be ''). */
+export function git(args: string[]): string {
   try {
-    return execSync(`git ${args}`, GIT_OPTS).trim();
+    return execFileSync('git', args, GIT_OPTS).trim();
+  } catch (err: unknown) {
+    const stderr =
+      err && typeof err === 'object' && 'stderr' in err ? String((err as { stderr: unknown }).stderr).trim() : '';
+    const message = stderr || (err instanceof Error ? err.message : String(err));
+    throw new GitError(args, `git ${args.join(' ')} failed: ${message}`);
+  }
+}
+
+/** Best-effort git: returns '' when git fails (missing ref, no tags, etc.). */
+export function gitOptional(args: string[]): string {
+  try {
+    return git(args);
   } catch {
     return '';
   }
@@ -42,7 +65,7 @@ export function getGitDiff(maxTokens: number = 8000): DiffResult {
     return { staged: false, diff: '', truncated: false };
   }
 
-  let diff = git('diff --cached');
+  let diff = gitOptional(['diff', '--cached']);
   if (!diff) {
     return { staged: false, diff: '', truncated: false };
   }
@@ -77,55 +100,59 @@ function truncateDiff(diff: string, maxTokens: number): string {
 }
 
 export function stageAllAndDiff(): DiffResult {
-  git('add -A');
+  git(['add', '-A']);
   return getGitDiff();
 }
 
+function parseCount(value: string | undefined): number | null {
+  if (!value || value === '-') return null;
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 export function getDiffStats(): DiffStats {
-  const numstat = git('diff --cached --numstat');
+  const numstat = gitOptional(['diff', '--cached', '--numstat']);
   if (!numstat) return { files: 0, insertions: 0, deletions: 0 };
 
   const lines = numstat.split('\n').filter(Boolean);
   let files = 0, insertions = 0, deletions = 0;
   for (const line of lines) {
     const [add, del] = line.split('\t');
-    if (add && add !== '-') insertions += parseInt(add, 10);
-    if (del && del !== '-') deletions += parseInt(del, 10);
+    const ins = parseCount(add);
+    const delCount = parseCount(del);
+    if (ins !== null) insertions += ins;
+    if (delCount !== null) deletions += delCount;
     files++;
   }
   return { files, insertions, deletions };
 }
 
 export function amendCommit(subject: string, body?: string): string {
-  const esc = (s: string) => s.replace(/["`$\\]/g, '\\$&');
-  const cmd = body
-    ? `git commit --amend -m "${esc(subject)}" -m "${esc(body)}"`
-    : `git commit --amend -m "${esc(subject)}"`;
-  execSync(cmd, {
+  const args = body
+    ? ['commit', '--amend', '-m', subject, '-m', body]
+    : ['commit', '--amend', '-m', subject];
+  execFileSync('git', args, {
     stdio: 'inherit',
     encoding: 'utf-8',
   });
-  return git('rev-parse --short HEAD');
+  return git(['rev-parse', '--short', 'HEAD']);
 }
 
 export function getLastCommitDiff(): string {
-  return git('diff HEAD~1..HEAD');
+  return gitOptional(['diff', 'HEAD~1..HEAD']);
 }
 
 export function createCommit(subject: string, body?: string): string {
-  const esc = (s: string) => s.replace(/["`$\\]/g, '\\$&');
-  const cmd = body
-    ? `git commit -m "${esc(subject)}" -m "${esc(body)}"`
-    : `git commit -m "${esc(subject)}"`;
-  execSync(cmd, {
+  const args = body ? ['commit', '-m', subject, '-m', body] : ['commit', '-m', subject];
+  execFileSync('git', args, {
     stdio: 'inherit',
     encoding: 'utf-8',
   });
-  return git('rev-parse --short HEAD');
+  return git(['rev-parse', '--short', 'HEAD']);
 }
 
 export function hasUnstagedChanges(): boolean {
-  const status = git('status --porcelain');
+  const status = gitOptional(['status', '--porcelain']);
   if (!status) return false;
   return status.split('\n').some(line => {
     if (line.startsWith('??')) return true;
@@ -135,7 +162,7 @@ export function hasUnstagedChanges(): boolean {
 }
 
 export function getUnstagedStats(): UnstagedStats {
-  const status = git('status --porcelain');
+  const status = gitOptional(['status', '--porcelain']);
   if (!status) return { files: 0, names: [], diffs: [] };
   const lines = status.split('\n').filter(line => {
     if (line.startsWith('??')) return true;
@@ -145,12 +172,12 @@ export function getUnstagedStats(): UnstagedStats {
   const names = lines.map(l => l.slice(3));
   const isUntracked = (n: string) => status.split('\n').some(l => l.startsWith('??') && l.slice(3) === n);
 
-  const numstatRaw = git('diff --numstat');
+  const numstatRaw = gitOptional(['diff', '--numstat']);
   const numstat: Record<string, { ins: number; del: number }> = {};
   for (const line of numstatRaw.split('\n').filter(Boolean)) {
     const [ins, del, ...fileParts] = line.split('\t');
     const file = fileParts.join('\t');
-    numstat[file] = { ins: parseInt(ins, 10) || 0, del: parseInt(del, 10) || 0 };
+    numstat[file] = { ins: parseCount(ins) ?? 0, del: parseCount(del) ?? 0 };
   }
 
   const diffs = names.map(n => {

@@ -80,7 +80,7 @@ interface CommitCliOptions {
 
 async function runCommitFlow(opts: CommitCliOptions): Promise<void> {
   if (opts.config) {
-    const config = loadConfig();
+    const config = { ...loadConfig() };
     if (config.apiKey) {
       const key = config.apiKey;
       const prefix = key.slice(0, 4);

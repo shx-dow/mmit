@@ -1,4 +1,4 @@
-import { git } from './git.js';
+import { gitOptional } from './git.js';
 
 export interface Commit {
   hash: string;
@@ -24,8 +24,7 @@ export function parseSubject(subject: string): { type: string; scope?: string; b
   if (!m) return null;
   const type = m[1];
   const scope = m[2] ? m[2].slice(1, -1) : undefined;
-  const full = m[0];
-  const breaking = full.includes('!');
+  const breaking = /^[a-zA-Z]+(\([^)]*\))?!:/.test(subject);
   const description = m[3];
   return { type, scope, breaking, description };
 }
@@ -40,19 +39,34 @@ export function extractBullets(body: string): string[] {
 }
 
 export function getLastTag(): string | null {
-  const tag = git('describe --tags --abbrev=0 2>/dev/null');
+  const tag = gitOptional(['describe', '--tags', '--abbrev=0']);
   return tag || null;
 }
 
 export function getAllTags(): string[] {
-  const tags = git('tag --sort=-v:refname');
+  const tags = gitOptional(['tag', '--sort=-v:refname']);
   return tags ? tags.split('\n').filter(Boolean) : [];
 }
 
+const REF_PATTERN = /^[A-Za-z0-9._\/-]+$/;
+
+function assertRef(value: string, label: string): void {
+  if (!REF_PATTERN.test(value)) {
+    throw new Error(`Unsafe ${label} ref: ${JSON.stringify(value)}`);
+  }
+}
+
 export function getCommits(from: string, to: string = 'HEAD', opts: CommitQuery = {}): Commit[] {
-  const range = !from || from === '--root' ? to : `${from}..${to}`;
+  assertRef(to, 'to');
+  let range: string;
+  if (!from || from === '--root') {
+    range = to;
+  } else {
+    assertRef(from, 'from');
+    range = `${from}..${to}`;
+  }
   const hashFmt = opts.compact ? '%h' : '%H';
-  const raw = git(`log --format="<<<COMMIT>>>%n${hashFmt}%n%s%n%b" ${range}`);
+  const raw = gitOptional(['log', `--format=<<<COMMIT>>>%n${hashFmt}%n%s%n%b`, range]);
   if (!raw) return [];
 
   const blocks = raw.split('<<<COMMIT>>>\n').filter(Boolean);

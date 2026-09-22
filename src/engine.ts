@@ -10,17 +10,38 @@ export interface GeneratedMessage {
 }
 
 const COMMIT_PATTERN = /^[a-zA-Z]+(\([a-zA-Z0-9_.\-,/]+\))?!?:\s.+/;
+const SUBJECT_HARD_LIMIT = 100;
+const SUBJECT_SOFT_LIMIT = 72;
 
-function isValidCommitMessage(msg: string): boolean {
-  return COMMIT_PATTERN.test(msg) && msg.length <= 100;
+export function isValidCommitMessage(msg: string, commitTypes?: string[]): boolean {
+  if (!COMMIT_PATTERN.test(msg) || msg.length > SUBJECT_HARD_LIMIT) return false;
+  if (commitTypes && commitTypes.length > 0) {
+    const type = msg.split(/[(}!:]/)[0].toLowerCase();
+    if (!commitTypes.map(t => t.toLowerCase()).includes(type)) return false;
+  }
+  return true;
+}
+
+function stripCodeFences(raw: string): string {
+  const lines = raw.split('\n');
+  if (lines.length > 0 && lines[0].trim().startsWith('```')) {
+    lines.shift();
+  }
+  while (lines.length > 0 && lines[lines.length - 1].trim() === '```') {
+    lines.pop();
+  }
+  return lines.join('\n');
 }
 
 function splitSubjectBody(raw: string): { subject: string; body?: string } {
-  const cleaned = raw
-    .replace(/^```[\w]*\n?/gm, '')
-    .replace(/```$/gm, '')
-    .replace(/^['"]|['"]$/g, '')
-    .trim();
+  let cleaned = stripCodeFences(raw).trim();
+  if (
+    cleaned.length >= 2 &&
+    ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+      (cleaned.startsWith("'") && cleaned.endsWith("'")))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
 
   const lines = cleaned.split('\n');
   const subject = lines[0].trim();
@@ -28,7 +49,12 @@ function splitSubjectBody(raw: string): { subject: string; body?: string } {
   return { subject, body: rest || undefined };
 }
 
-function buildPrompt(diff: string, commitTypes: string[], truncated: boolean, strict: boolean = false): string {
+function buildPrompt(
+  diff: string,
+  commitTypes: string[],
+  truncated: boolean,
+  strict: boolean = false,
+): string {
   const types = commitTypes.join(', ');
 
   const strictRule = strict
@@ -87,12 +113,16 @@ export async function generateCommitMessage(
   overrideModel?: string,
 ): Promise<GeneratedMessage> {
   const config = loadConfig();
+  const commitTypes = config.commitTypes ?? [];
 
-  // Determine provider and model
-  const providerName = overrideProvider
-    || config.provider
-    || detectProviderFromEnv(config.provider)
-    || 'openai';
+  // Explicit provider always wins — never silently switch to another provider
+  // when the user (or project config) named one. Fall back to env detection
+  // only when nothing was named.
+  const explicitName = overrideProvider || config.provider;
+  if (explicitName && !providers[explicitName]) {
+    throw new Error(`Unknown provider "${explicitName}". Available: ${Object.keys(providers).join(', ')}`);
+  }
+  const providerName = explicitName || detectProviderFromEnv() || 'openai';
 
   const provider = providers[providerName];
   if (!provider) {
@@ -112,23 +142,36 @@ export async function generateCommitMessage(
     maxTokens: 500,
   };
 
+  async function generateOnce(strict: boolean): Promise<{ raw: string; parsed: { subject: string; body?: string } }> {
+    const prompt = buildPrompt(diff, commitTypes, truncated, strict);
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const raw = await provider.generate(prompt, providerConfig);
+        return { raw, parsed: splitSubjectBody(raw) };
+      } catch (err) {
+        lastErr = err;
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+      }
+    }
+    throw lastErr;
+  }
+
   // Attempt 1: normal prompt
-  let prompt = buildPrompt(diff, config.commitTypes ?? [], truncated);
-  let raw = await provider.generate(prompt, providerConfig);
-  let parsed = splitSubjectBody(raw);
+  let { parsed } = await generateOnce(false);
 
   // Attempt 2: stricter prompt if model rambled
-  if (!isValidCommitMessage(parsed.subject)) {
-    prompt = buildPrompt(diff, config.commitTypes ?? [], truncated, true);
-    raw = await provider.generate(prompt, providerConfig);
-    parsed = splitSubjectBody(raw);
+  if (!isValidCommitMessage(parsed.subject, commitTypes)) {
+    ({ parsed } = await generateOnce(true));
   }
 
   // Final check
-  if (!isValidCommitMessage(parsed.subject)) {
-    throw new Error(
-      `Model returned an invalid response. Try a different model.\n  Got: ${parsed.subject}`,
-    );
+  if (!isValidCommitMessage(parsed.subject, commitTypes)) {
+    const hint =
+      parsed.subject.length > SUBJECT_HARD_LIMIT
+        ? `Subject is ${parsed.subject.length} chars (max ${SUBJECT_HARD_LIMIT}, aim ${SUBJECT_SOFT_LIMIT}).`
+        : `Subject must be "<type>(<scope>): <description>" using one of: ${commitTypes.join(', ')}.`;
+    throw new Error(`Model returned an invalid response. ${hint}\n  Got: ${parsed.subject}`);
   }
 
   return {
