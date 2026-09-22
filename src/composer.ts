@@ -69,7 +69,7 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
     if (opts.dryRun || opts.auto) {
       if (opts.dryRun) {
         console.log(msg.body ? `${msg.subject}\n\n${msg.body}` : msg.subject);
-        p.outro(`Dry-run — ${opts.dryRunNote}`);
+        p.outro(`Dry-run - ${opts.dryRunNote}`);
       } else {
         const hash = opts.commit(msg.subject, msg.body);
         p.outro(pico.green(`${opts.verbPast} as ${hash}${opts.statsNote}`));
@@ -124,8 +124,8 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
 
       let hint: string | undefined;
       if (direction === 'shorter') hint = 'Keep the subject shorter and more direct.';
-      else if (direction === 'type') hint = 'Reconsider the commit type — try a different one.';
-      else if (direction === 'scope') hint = 'Reconsider the scope — try a different or no scope.';
+      else if (direction === 'type') hint = 'Reconsider the commit type (try a different one).';
+      else if (direction === 'scope') hint = 'Reconsider the scope (try a different or no scope).';
       else if (direction === 'body') {
         hint = msg.body
           ? 'Respond with ONLY the subject line, no body.'
@@ -181,7 +181,7 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
         const editedBody = await p.text({
           message: msg.body ? 'Edit the commit body (leave empty to remove)' : 'Add a commit body (optional)',
           initialValue: msg.body,
-          placeholder: 'optional — explain why, not how',
+          placeholder: 'optional, explain why, not how',
         });
 
         if (!p.isCancel(editedBody)) {

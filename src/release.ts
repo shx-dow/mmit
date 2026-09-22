@@ -102,7 +102,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
     p.log.step(`${pico.dim('git add CHANGELOG.md package.json')}`);
     p.log.step(`${pico.dim(`git commit -m "chore(release): v${newVersion}"`)}`);
     if (!noTag) p.log.step(`${pico.dim(`git tag v${newVersion}`)}`);
-    p.outro(pico.green('Dry-run — no changes made'));
+    p.outro(pico.green('Dry-run - no changes made'));
     return;
   }
 

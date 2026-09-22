@@ -34,7 +34,7 @@ function readJsonFile(file: string, label: string): Record<string, unknown> {
   try {
     return JSON.parse(readFileSync(file, 'utf-8'));
   } catch {
-    console.error(`Warning: ${label} config at ${file} is not valid JSON — ignoring it.`);
+    console.error(`Warning: ${label} config at ${file} is not valid JSON - ignoring it.`);
     return {};
   }
 }

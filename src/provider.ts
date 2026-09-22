@@ -175,6 +175,31 @@ export const providers: Record<string, Provider> = {
   openrouter: openrouterProvider,
 };
 
+export const KEY_URLS: Record<string, string> = {
+  openai: 'https://platform.openai.com/api-keys',
+  anthropic: 'https://console.anthropic.com/settings/keys',
+  gemini: 'https://aistudio.google.com/app/apikey',
+  openrouter: 'https://openrouter.ai/keys',
+};
+
+/** Translate raw provider/SDK errors into plain language with a next step. */
+export function friendlyProviderError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/429|rate.?limit|quota|resource exhausted/i.test(raw)) {
+    return `Rate limit hit, wait a minute or try another model. (${raw})`;
+  }
+  if (/401|403|unauthorized|invalid.*(key|token)|incorrect api key|invalid_api_key|authentication/i.test(raw)) {
+    return `Key rejected by the provider, check the key and run \`mmit init\` again. (${raw})`;
+  }
+  if (/timed out/i.test(raw)) {
+    return `Provider timed out, possibly high load. Retry shortly. (${raw})`;
+  }
+  if (/50\d|overload|unavailable|capacity|internal error/i.test(raw)) {
+    return `Provider seems to be having issues, retry shortly or try another model. (${raw})`;
+  }
+  return raw;
+}
+
 export function detectProviderFromEnv(preferred?: string): string | null {
   const order = preferred && providers[preferred]
     ? [preferred, ...Object.keys(providers).filter(k => k !== preferred)]

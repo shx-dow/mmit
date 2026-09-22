@@ -9,6 +9,7 @@ import { handleAmend } from './amend.js';
 import { handleChangelog } from './changelog.js';
 import { handleRelease } from './release.js';
 import { handleInit } from './init.js';
+import { handleDoctor } from './doctor.js';
 import { getGitDiff, createCommit } from './git.js';
 import { renderHeader, VERSION } from './logo.js';
 
@@ -27,8 +28,17 @@ export async function run(): Promise<void> {
 
   program
     .command('init')
-    .description('Set up API provider and model')
+    .description('Set up AI provider and model (tests the connection)')
     .action(() => handleInit());
+
+  program
+    .command('doctor')
+    .description('Check your setup with a sample diff (touches nothing)')
+    .option('-p, --provider <name>', 'AI provider')
+    .option('-m, --model <name>', 'Model name override')
+    .action(async (opts) => {
+      await handleDoctor(opts);
+    });
 
   program
     .command('changelog')

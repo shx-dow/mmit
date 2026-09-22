@@ -104,7 +104,7 @@ Commit types available: ${types}
 Format:
 <type>(<scope>): <description>
 
-<optional body — explain why, not how>
+<optional body, explain why, not how>
 
 <optional footers>
 

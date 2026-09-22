@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "scripts"
   ],
   "type": "module",
   "scripts": {
@@ -21,6 +22,7 @@
     "dev": "tsc --watch",
     "start": "node bin/mmit",
     "test": "vitest run",
+    "postinstall": "node scripts/postinstall.js",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
