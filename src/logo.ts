@@ -21,3 +21,9 @@ export function renderHeader(): string {
     return l;
   }).join('\n'));
 }
+
+/** Compact one-line header for daily runs. Full pixel logo stays on init/first-run. */
+export function renderCompactHeader(details?: string): string {
+  const base = `${pico.bold('mmit')} ${pico.dim(`v${VERSION}`)}`;
+  return details ? `${base} ${pico.dim(`· ${details}`)}` : base;
+}

@@ -14,7 +14,7 @@ import {
   getUnstagedStats,
   getLastCommitDiff,
 } from './git.js';
-import { renderHeader } from './logo.js';
+import { renderCompactHeader } from './logo.js';
 import { handleInit } from './init.js';
 
 export interface FlowOptions {
@@ -33,8 +33,7 @@ export interface FlowOptions {
 }
 
 export async function runFlow(opts: FlowOptions): Promise<void> {
-  process.stderr.write(renderHeader() + '\n');
-  p.intro('');
+  process.stderr.write(renderCompactHeader() + '\n');
 
   if (!isGitRepo()) {
     p.outro(pico.red('Not a git repository'));
@@ -172,7 +171,7 @@ export async function runFlow(opts: FlowOptions): Promise<void> {
 
   const statsNote = lastCommitOnly
     ? ''
-    : `  (${statsLine}, ${pico.green(`+${diffStats!.insertions}`)} ${pico.red(`-${diffStats!.deletions}`)})`;
+    : `  (${statsLine}, ${pico.green(`+${diffStats!.insertions}`)} ${pico.red(`-${diffStats!.deletions}`)}${pico.dim(` · ${msg.provider} · ${msg.model}`)})`;
 
   await runComposer({
     message: msg,

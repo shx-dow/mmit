@@ -23,6 +23,19 @@ export interface ComposerOptions {
 const KEEP = Symbol('keep');
 const KEEP_FALLBACK = Symbol('fallback');
 
+function highlightSubject(subject: string): string {
+  const m = subject.match(/^([a-zA-Z]+(\([^)]*\))?!?:)(.*)$/);
+  if (!m) return subject;
+  return `${pico.green(m[1])}${m[3]}`;
+}
+
+function formatBullets(body: string): string {
+  return body
+    .split('\n')
+    .map(l => pico.dim(`  ${l.replace(/^-\s*/, '• ')}`))
+    .join('\n');
+}
+
 function editBodyInEditor(current?: string): string | undefined | typeof KEEP | typeof KEEP_FALLBACK {
   const editor = process.env.VISUAL || process.env.EDITOR || 'vi';
   if (!process.stdin.isTTY) return KEEP_FALLBACK;
@@ -47,16 +60,10 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
   const previousSubjects: string[] = [];
   let regenAttempt = 0;
 
-  p.log.step(pico.dim(`${msg.provider} · ${msg.model}`));
-
   while (true) {
-    p.log.step(msg.subject);
+    p.log.step(highlightSubject(msg.subject));
     if (msg.body) {
-      const bullets = msg.body
-        .split('\n')
-        .map(l => `  ${l.replace(/^-\s*/, '• ')}`)
-        .join('\n');
-      p.log.message(bullets);
+      p.log.message(formatBullets(msg.body));
     }
 
     if (opts.dryRun || opts.auto) {
