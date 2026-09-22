@@ -14,12 +14,23 @@ const SUBJECT_HARD_LIMIT = 100;
 const SUBJECT_SOFT_LIMIT = 72;
 
 export function isValidCommitMessage(msg: string, commitTypes?: string[]): boolean {
-  if (!COMMIT_PATTERN.test(msg) || msg.length > SUBJECT_HARD_LIMIT) return false;
-  if (commitTypes && commitTypes.length > 0) {
-    const type = msg.split(/[(}!:]/)[0].toLowerCase();
-    if (!commitTypes.map(t => t.toLowerCase()).includes(type)) return false;
+  return validateSubject(msg, commitTypes) === undefined;
+}
+
+export function validateSubject(subject: string, commitTypes?: string[]): string | undefined {
+  const s = subject.trim();
+  if (!s) return 'Message cannot be empty';
+  if (s.length > SUBJECT_HARD_LIMIT) {
+    return `Subject is ${s.length} chars (max ${SUBJECT_HARD_LIMIT}, aim ${SUBJECT_SOFT_LIMIT})`;
   }
-  return true;
+  if (!COMMIT_PATTERN.test(s)) return 'Use "<type>(<scope>): <description>"';
+  if (commitTypes && commitTypes.length > 0) {
+    const type = s.split(/[(}!:]/)[0].toLowerCase();
+    if (!commitTypes.map(t => t.toLowerCase()).includes(type)) {
+      return `Unknown type. Use one of: ${commitTypes.join(', ')}`;
+    }
+  }
+  return undefined;
 }
 
 function stripCodeFences(raw: string): string {

@@ -1,6 +1,11 @@
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { GeneratedMessage, VariationOptions } from './engine.js';
+import { validateSubject } from './engine.js';
 
 export interface ComposerOptions {
   message: GeneratedMessage;
@@ -10,8 +15,31 @@ export interface ComposerOptions {
   statsNote: string;
   dryRun: boolean;
   auto: boolean;
+  commitTypes: string[];
   regenerate: (variation?: VariationOptions) => Promise<GeneratedMessage>;
   commit: (subject: string, body?: string) => string;
+}
+
+const KEEP = Symbol('keep');
+const KEEP_FALLBACK = Symbol('fallback');
+
+function editBodyInEditor(current?: string): string | undefined | typeof KEEP | typeof KEEP_FALLBACK {
+  const editor = process.env.VISUAL || process.env.EDITOR || 'vi';
+  if (!process.stdin.isTTY) return KEEP_FALLBACK;
+  let dir: string | undefined;
+  try {
+    dir = mkdtempSync(join(tmpdir(), 'mmit-body-'));
+    const file = join(dir, 'COMMIT_BODY.md');
+    writeFileSync(file, current ?? '', 'utf-8');
+    const res = spawnSync(editor, [file], { stdio: 'inherit' });
+    if (res.error || res.status !== 0) return KEEP;
+    const edited = readFileSync(file, 'utf-8').trim();
+    return edited || undefined;
+  } catch {
+    return KEEP;
+  } finally {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 export async function runComposer(opts: ComposerOptions): Promise<void> {
@@ -128,40 +156,32 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
 
     if (action === 'edit') {
       const editedSubject = await p.text({
-        message: 'Edit the commit subject',
+        message: `Edit the commit subject (${msg.subject.trim().length}/72)`,
         initialValue: msg.subject,
-        validate: (val: string) => {
-          if (!val.trim()) return 'Message cannot be empty';
-        },
+        validate: (val: string) => validateSubject(val, opts.commitTypes),
       });
 
       if (p.isCancel(editedSubject)) {
         continue;
       }
 
-      msg.subject = editedSubject.trim();
+      msg.subject = (editedSubject as string).trim();
 
-      const editBody = await p.confirm({
-        message: msg.body ? 'Edit the body too?' : 'Add a body?',
-        initialValue: !!msg.body,
-      });
-
-      if (p.isCancel(editBody)) {
-        continue;
-      }
-
-      if (editBody) {
+      const result = editBodyInEditor(msg.body);
+      if (result === KEEP) {
+        p.log.warn('Body unchanged.');
+      } else if (result === KEEP_FALLBACK) {
         const editedBody = await p.text({
           message: msg.body ? 'Edit the commit body (leave empty to remove)' : 'Add a commit body (optional)',
           initialValue: msg.body,
           placeholder: 'optional — explain why, not how',
         });
 
-        if (p.isCancel(editedBody)) {
-          continue;
+        if (!p.isCancel(editedBody)) {
+          msg.body = (editedBody as string).trim() || undefined;
         }
-
-        msg.body = (editedBody as string).trim() || undefined;
+      } else {
+        msg.body = result;
       }
 
       continue;
