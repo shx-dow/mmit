@@ -74,6 +74,16 @@ export async function handleConfig(args: string[]): Promise<void> {
       process.exit(1);
       return;
     }
+    if (key === 'provider' && (!valueRaw || process.stdin.isTTY)) {
+      const { runSetupFlow } = await import('./setup.js');
+      if (valueRaw && !isValidProvider(valueRaw)) {
+        console.error(`Unknown provider "${valueRaw}".`);
+        process.exit(1);
+        return;
+      }
+      await runSetupFlow(valueRaw || undefined, 'Switched. Run `mmit doctor` anytime to re-check.');
+      return;
+    }
     if (!valueRaw && key === 'model') {
       const config = loadConfig();
       const providerName = config.provider || 'openai';
