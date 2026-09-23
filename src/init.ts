@@ -95,7 +95,7 @@ export async function handleInit(): Promise<void> {
     } catch (err) {
       spin.stop('Failed');
       const retry = await p.confirm({
-        message: `${friendlyProviderError(err)}\nTry a different key?`,
+        message: `${pico.red(friendlyProviderError(err))}\nTry a different key?`,
         initialValue: true,
       });
       if (!p.isCancel(retry) && retry) return handleInit();

@@ -1,4 +1,4 @@
-import { providers, detectProviderFromEnv } from './provider.js';
+import { providers, detectProviderFromEnv, isRetryableProviderError } from './provider.js';
 import type { ProviderConfig } from './provider.js';
 import { loadConfig } from './config.js';
 
@@ -182,17 +182,17 @@ export async function generateCommitMessage(
 
   async function generateOnce(strict: boolean): Promise<{ raw: string; parsed: { subject: string; body?: string } }> {
     const prompt = buildPrompt(diff, commitTypes, truncated, strict, variation);
-    let lastErr: unknown;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const raw = await provider.generate(prompt, providerConfig);
         return { raw, parsed: splitSubjectBody(raw) };
       } catch (err) {
-        lastErr = err;
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        const retryable = isRetryableProviderError(err);
+        if (attempt === 2 || !retryable) throw err;
+        await new Promise(r => setTimeout(r, 1000 * 2 ** attempt));
       }
     }
-    throw lastErr;
+    throw new Error('unreachable');
   }
 
   // Attempt 1: normal prompt

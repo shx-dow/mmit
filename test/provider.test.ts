@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { providers, detectProviderFromEnv } from '../src/provider.js';
+import { providers, detectProviderFromEnv, friendlyProviderError, isRetryableProviderError } from '../src/provider.js';
 
 const PROVIDER_NAMES = ['openai', 'anthropic', 'gemini', 'openrouter'];
 const SAVED_ENV: Record<string, string | undefined> = {};
@@ -57,5 +57,34 @@ describe('detectProviderFromEnv', () => {
   it('falls back to any set env var when the preferred one is missing', () => {
     process.env[providers.openai.envKey] = 'fake-key';
     expect(detectProviderFromEnv('gemini')).toBe('openai');
+  });
+});
+
+describe('friendlyProviderError', () => {
+  it('maps rate limits to a wait-or-switch message', () => {
+    expect(friendlyProviderError(new Error('429 rate limit exceeded'))).toMatch(/Rate limit/i);
+  });
+
+  it('maps auth failures to a re-init message', () => {
+    expect(friendlyProviderError(new Error('401 incorrect api key'))).toMatch(/mmit init/);
+  });
+
+  it('maps timeouts and outages', () => {
+    expect(friendlyProviderError(new Error('OpenAI timed out after 30000ms'))).toMatch(/timed out/i);
+    expect(friendlyProviderError(new Error('503 overloaded'))).toMatch(/having issues/i);
+  });
+
+  it('passes through unknown errors', () => {
+    expect(friendlyProviderError(new Error('weird failure'))).toBe('weird failure');
+  });
+});
+
+describe('isRetryableProviderError', () => {
+  it('retries rate limits, outages, and timeouts but not auth errors', () => {
+    expect(isRetryableProviderError(new Error('429 too many requests'))).toBe(true);
+    expect(isRetryableProviderError(new Error('503 unavailable'))).toBe(true);
+    expect(isRetryableProviderError(new Error('timed out'))).toBe(true);
+    expect(isRetryableProviderError(new Error('401 invalid key'))).toBe(false);
+    expect(isRetryableProviderError(new Error('Model returned an invalid response'))).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig } from './config.js';
-import { detectProviderFromEnv } from './provider.js';
+import { detectProviderFromEnv, friendlyProviderError } from './provider.js';
 import { generateCommitMessage } from './engine.js';
 import type { GeneratedMessage } from './engine.js';
 import { runComposer } from './composer.js';
@@ -161,8 +161,8 @@ export async function runFlow(opts: FlowOptions): Promise<void> {
     msg = await generateCommitMessage(diff, truncated, provider, model);
   } catch (err: unknown) {
     spin.stop('Error');
-    const message = err instanceof Error ? err.message : String(err);
-    p.outro(pico.red(`Generation failed: ${message}`));
+    const message = friendlyProviderError(err);
+    p.outro(pico.red(`Generation failed: ${message}\n${pico.dim('Tip: run `mmit doctor` to check your setup.')}`));
     process.exit(1);
     return;
   }

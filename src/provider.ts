@@ -200,6 +200,12 @@ export function friendlyProviderError(err: unknown): string {
   return raw;
 }
 
+/** True for transient failures worth retrying (rate limits, outages, timeouts). */
+export function isRetryableProviderError(err: unknown): boolean {
+  const raw = err instanceof Error ? err.message : String(err);
+  return /429|rate.?limit|quota|resource exhausted|50\d|overload|unavailable|capacity|internal error|timed out|timeout|fetch failed|ECONNRESET|ETIMEDOUT|network|socket hang up/i.test(raw);
+}
+
 export function detectProviderFromEnv(preferred?: string): string | null {
   const order = preferred && providers[preferred]
     ? [preferred, ...Object.keys(providers).filter(k => k !== preferred)]

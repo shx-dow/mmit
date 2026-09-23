@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GeneratedMessage, VariationOptions } from './engine.js';
 import { validateSubject } from './engine.js';
+import { friendlyProviderError } from './provider.js';
 
 export interface ComposerOptions {
   message: GeneratedMessage;
@@ -153,7 +154,7 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
         msg.model = next.model;
       } catch (err: unknown) {
         spin.stop('Error');
-        const message = err instanceof Error ? err.message : String(err);
+        const message = friendlyProviderError(err);
         p.outro(pico.red(`Generation failed: ${message}`));
         process.exit(1);
       }
