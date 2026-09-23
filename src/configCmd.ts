@@ -1,5 +1,7 @@
 import { loadConfig, saveGlobalConfig, isValidProvider, CONFIG_KEYS } from './config.js';
 import type { Config } from './config.js';
+import { providers } from './provider.js';
+import { promptForModel } from './models.js';
 
 function mask(key: string): string {
   return key.length <= 8 ? '****' : `${key.slice(0, 4)}...${key.slice(-4)}`;
@@ -70,6 +72,22 @@ export async function handleConfig(args: string[]): Promise<void> {
     if (!key) {
       console.error(`Usage: mmit config set <key> <value>\nKeys: ${CONFIG_KEYS.join(', ')}`);
       process.exit(1);
+      return;
+    }
+    if (!valueRaw && key === 'model') {
+      const config = loadConfig();
+      const providerName = config.provider || 'openai';
+      const provider = providers[providerName];
+      const current = config.model || provider?.defaultModel || '';
+      const picked = await promptForModel(providerName, current, provider?.defaultModel || current);
+      if (!picked) {
+        console.error('Cancelled.');
+        process.exit(1);
+        return;
+      }
+      const next = { ...config, model: picked } as Config;
+      saveGlobalConfig(next);
+      console.log(`model=${picked}`);
       return;
     }
     if (!valueRaw) {

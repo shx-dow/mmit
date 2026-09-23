@@ -4,6 +4,7 @@ import { loadConfig, saveGlobalConfig } from './config.js';
 import { providers, KEY_URLS, friendlyProviderError } from './provider.js';
 import { generateCommitMessage } from './engine.js';
 import { DOCTOR_DIFF } from './doctor.js';
+import { promptForModel } from './models.js';
 import { renderHeader } from './logo.js';
 
 function mask(key: string): string {
@@ -67,17 +68,11 @@ export async function handleInit(): Promise<void> {
     }
   }
 
-  const model = await p.text({
-    message: `Default model for ${provider}`,
-    initialValue: prev.provider === provider && prev.model ? prev.model : info.defaultModel,
-    placeholder: info.defaultModel,
-    validate: (val: string) => {
-      if (!val.trim()) return 'Model name cannot be empty';
-    },
-  });
+  const currentModel = prev.provider === provider && prev.model ? prev.model : info.defaultModel;
+  const picked = await promptForModel(provider as string, currentModel, info.defaultModel);
 
-  if (p.isCancel(model)) return;
-  const modelName = (model as string).trim();
+  if (!picked) return;
+  const modelName = picked;
 
   // Verify before saving: full path (auth + generation + parsing) on a sample diff.
   const hadEnv = info.envKey in process.env;
