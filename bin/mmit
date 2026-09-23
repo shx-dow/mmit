@@ -3,6 +3,11 @@
 import { run } from '../dist/index.js';
 
 run().catch((err) => {
+  // Safety net: command wrapper handles CliError; anything reaching here is a bug.
+  if (err && err.name === 'CliError') {
+    console.error(err.message);
+    process.exit(typeof err.exitCode === 'number' ? err.exitCode : 1);
+  }
   console.error(err);
   process.exit(1);
 });

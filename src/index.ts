@@ -13,6 +13,20 @@ import { handleDoctor } from './doctor.js';
 import { handleConfig } from './configCmd.js';
 import { getGitDiff, createCommit } from './git.js';
 import { renderHeader, VERSION } from './logo.js';
+import { CliError } from './errors.js';
+
+/** Single choke point: CliError becomes a red outro + exit code. */
+async function runCommand(fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    if (err instanceof CliError) {
+      p.outro(pico.red(err.message));
+      process.exit(err.exitCode);
+    }
+    throw err;
+  }
+}
 
 export async function run(): Promise<void> {
   program
@@ -25,12 +39,12 @@ export async function run(): Promise<void> {
     .option('--dry-run', 'Generate message but do not commit')
     .option('--config', 'Open global config for editing')
     .option('--auto', 'Auto-confirm without interactive prompt')
-    .action(runCommitFlow);
+    .action((opts) => runCommand(() => runCommitFlow(opts)));
 
   program
     .command('init')
     .description('Set up AI provider and model (tests the connection)')
-    .action(() => handleInit());
+    .action(() => runCommand(() => handleInit()));
 
   program
     .command('doctor')
@@ -38,7 +52,7 @@ export async function run(): Promise<void> {
     .option('-p, --provider <name>', 'AI provider')
     .option('-m, --model <name>', 'Model name override')
     .action(async (opts) => {
-      await handleDoctor(opts);
+      await runCommand(() => handleDoctor(opts));
     });
 
   program
@@ -46,7 +60,7 @@ export async function run(): Promise<void> {
     .description('View or change saved config (config [list|get|set])')
     .argument('[args...]', 'list, get <key>, or set <key> <value>')
     .action(async (args) => {
-      await handleConfig(args);
+      await runCommand(() => handleConfig(args));
     });
 
   program
@@ -60,7 +74,7 @@ export async function run(): Promise<void> {
     .option('--from <ref>', 'Start commit/tag')
     .option('--to <ref>', 'End commit/tag (default HEAD)')
     .action(async (opts) => {
-      await handleChangelog(opts);
+      await runCommand(() => handleChangelog(opts));
     });
 
   program
@@ -71,7 +85,7 @@ export async function run(): Promise<void> {
     .option('--dry-run', 'Generate message but do not amend')
     .option('--auto', 'Auto-confirm without interactive prompt')
     .action(async (opts) => {
-      await handleAmend(opts);
+      await runCommand(() => handleAmend(opts));
     });
 
   program
@@ -82,7 +96,7 @@ export async function run(): Promise<void> {
     .option('--no-tag', 'Do not tag the release')
     .option('--compact', 'Compact changelog format')
     .action(async (bump, opts) => {
-      await handleRelease({ bump, ...opts });
+      await runCommand(() => handleRelease({ bump, ...opts }));
     });
 
   await program.parseAsync(process.argv);

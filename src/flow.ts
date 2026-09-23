@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig } from './config.js';
 import { detectProviderFromEnv, friendlyProviderError } from './provider.js';
+import { CliError } from './errors.js';
 import { generateCommitMessage } from './engine.js';
 import type { GeneratedMessage } from './engine.js';
 import { runComposer } from './composer.js';
@@ -36,9 +37,7 @@ export async function runFlow(opts: FlowOptions): Promise<void> {
   process.stderr.write(renderCompactHeader() + '\n');
 
   if (!isGitRepo()) {
-    p.outro(pico.red('Not a git repository'));
-    process.exit(1);
-    return;
+    throw new CliError('Not a git repository');
   }
 
   const provider = opts.provider || loadConfig().provider || detectProviderFromEnv();
@@ -162,9 +161,7 @@ export async function runFlow(opts: FlowOptions): Promise<void> {
   } catch (err: unknown) {
     spin.stop('Error');
     const message = friendlyProviderError(err);
-    p.outro(pico.red(`Generation failed: ${message}\n${pico.dim('Tip: run `mmit doctor` to check your setup.')}`));
-    process.exit(1);
-    return;
+    throw new CliError(`Generation failed: ${message}\nTip: run \`mmit doctor\` to check your setup.`);
   }
 
   spin.stop('Done');

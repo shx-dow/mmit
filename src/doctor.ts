@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import pico from 'picocolors';
 import { loadConfig } from './config.js';
 import { providers, detectProviderFromEnv, friendlyProviderError } from './provider.js';
+import { CliError } from './errors.js';
 import { generateCommitMessage } from './engine.js';
 import type { GeneratedMessage } from './engine.js';
 import { renderCompactHeader } from './logo.js';
@@ -58,7 +59,6 @@ export async function handleDoctor(opts: DoctorOptions): Promise<void> {
     p.outro(pico.green(`Healthy · ${msg.provider} · ${msg.model}`));
   } catch (err) {
     spin.stop('Failed');
-    p.outro(pico.red(err instanceof Error ? err.message : String(err)));
-    process.exit(1);
+    throw new CliError(err instanceof Error ? err.message : String(err));
   }
 }

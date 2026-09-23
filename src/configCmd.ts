@@ -2,6 +2,7 @@ import { loadConfig, saveGlobalConfig, isValidProvider, CONFIG_KEYS } from './co
 import type { Config } from './config.js';
 import { providers } from './provider.js';
 import { promptForModel } from './models.js';
+import { CliError } from './errors.js';
 
 function mask(key: string): string {
   return key.length <= 8 ? '****' : `${key.slice(0, 4)}...${key.slice(-4)}`;
@@ -58,9 +59,7 @@ export async function handleConfig(args: string[]): Promise<void> {
 
   if (sub === 'get') {
     if (!key || !(CONFIG_KEYS as readonly string[]).includes(key)) {
-      console.error(`Usage: mmit config get <key>\nKeys: ${CONFIG_KEYS.join(', ')}`);
-      process.exit(1);
-      return;
+      throw new CliError(`Usage: mmit config get <key>\nKeys: ${CONFIG_KEYS.join(', ')}`);
     }
     const value = loadConfig()[key as keyof Config];
     console.log(value === undefined ? '' : showValue(key, value));
@@ -70,16 +69,12 @@ export async function handleConfig(args: string[]): Promise<void> {
   if (sub === 'set') {
     const valueRaw = rest.join(' ');
     if (!key) {
-      console.error(`Usage: mmit config set <key> <value>\nKeys: ${CONFIG_KEYS.join(', ')}`);
-      process.exit(1);
-      return;
+      throw new CliError(`Usage: mmit config set <key> <value>\nKeys: ${CONFIG_KEYS.join(', ')}`);
     }
     if (key === 'provider' && (!valueRaw || process.stdin.isTTY)) {
       const { runSetupFlow } = await import('./setup.js');
       if (valueRaw && !isValidProvider(valueRaw)) {
-        console.error(`Unknown provider "${valueRaw}".`);
-        process.exit(1);
-        return;
+        throw new CliError(`Unknown provider "${valueRaw}".`);
       }
       await runSetupFlow(valueRaw || undefined, 'Switched. Run `mmit doctor` anytime to re-check.');
       return;
@@ -91,9 +86,7 @@ export async function handleConfig(args: string[]): Promise<void> {
       const current = config.model || provider?.defaultModel || '';
       const picked = await promptForModel(providerName, current, provider?.defaultModel || current);
       if (!picked) {
-        console.error('Cancelled.');
-        process.exit(1);
-        return;
+        throw new CliError('Cancelled.');
       }
       const next = { ...config, model: picked } as Config;
       saveGlobalConfig(next);
@@ -101,17 +94,13 @@ export async function handleConfig(args: string[]): Promise<void> {
       return;
     }
     if (!valueRaw) {
-      console.error(`Usage: mmit config set <key> <value>\nKeys: ${CONFIG_KEYS.join(', ')}`);
-      process.exit(1);
-      return;
+      throw new CliError(`Usage: mmit config set <key> <value>\nKeys: ${CONFIG_KEYS.join(', ')}`);
     }
     let value: Config[keyof Config];
     try {
       value = parseConfigValue(key, valueRaw);
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exit(1);
-      return;
+      throw new CliError(err instanceof Error ? err.message : String(err));
     }
     const next = { ...loadConfig(), [key]: value } as Config;
     saveGlobalConfig(next);
@@ -119,6 +108,5 @@ export async function handleConfig(args: string[]): Promise<void> {
     return;
   }
 
-  console.error('Usage: mmit config [list|get <key>|set <key> <value>]');
-  process.exit(1);
+  throw new CliError('Usage: mmit config [list|get <key>|set <key> <value>]');
 }

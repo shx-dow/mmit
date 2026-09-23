@@ -1,10 +1,8 @@
-import { execSync } from 'node:child_process';
-import * as p from '@clack/prompts';
-import pico from 'picocolors';
+import { execFileSync } from 'node:child_process';
 import { loadConfig } from './config.js';
 import { runFlow } from './flow.js';
 import { isGitRepo, amendCommit } from './git.js';
-import { renderHeader } from './logo.js';
+import { CliError } from './errors.js';
 
 export interface AmendOptions {
   provider?: string;
@@ -15,21 +13,13 @@ export interface AmendOptions {
 
 export async function handleAmend(opts: AmendOptions = {}): Promise<void> {
   if (!isGitRepo()) {
-    process.stderr.write(renderHeader() + '\n');
-    p.intro('');
-    p.outro(pico.red('Not a git repository'));
-    process.exit(1);
-    return;
+    throw new CliError('Not a git repository');
   }
 
   try {
-    execSync('git rev-parse HEAD', { stdio: 'pipe' });
+    execFileSync('git', ['rev-parse', 'HEAD'], { stdio: 'pipe' });
   } catch {
-    process.stderr.write(renderHeader() + '\n');
-    p.intro('');
-    p.outro(pico.red('No commits yet. Nothing to amend.'));
-    process.exit(1);
-    return;
+    throw new CliError('No commits yet. Nothing to amend.');
   }
 
   await runFlow({

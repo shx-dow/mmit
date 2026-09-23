@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import type { GeneratedMessage, VariationOptions } from './engine.js';
 import { validateSubject } from './engine.js';
 import { friendlyProviderError } from './provider.js';
+import { CliError } from './errors.js';
 
 export interface ComposerOptions {
   message: GeneratedMessage;
@@ -154,9 +155,7 @@ export async function runComposer(opts: ComposerOptions): Promise<void> {
         msg.model = next.model;
       } catch (err: unknown) {
         spin.stop('Error');
-        const message = friendlyProviderError(err);
-        p.outro(pico.red(`Generation failed: ${message}`));
-        process.exit(1);
+        throw new CliError(`Generation failed: ${friendlyProviderError(err)}`);
       }
       spin.stop('Done');
       continue;

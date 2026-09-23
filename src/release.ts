@@ -6,6 +6,7 @@ import { generateChangelog } from './changelog.js';
 import { isGitRepo, gitOptional, git } from './git.js';
 import { getLastTag, detectBump } from './history.js';
 import { renderHeader } from './logo.js';
+import { CliError } from './errors.js';
 
 function bumpVersion(version: string, bump: 'patch' | 'minor' | 'major'): string {
   const parts = version.split('.').map(Number);
@@ -31,9 +32,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
 
   const explicitBump = opts.bump;
   if (explicitBump && !['patch', 'minor', 'major'].includes(explicitBump)) {
-    console.error('Usage: mmit release [patch|minor|major] [--dry-run] [--no-tag] [--compact]');
-    process.exit(1);
-    return;
+    throw new CliError('Usage: mmit release [patch|minor|major] [--dry-run] [--no-tag] [--compact]');
   }
 
   const dryRun = !!opts.dryRun;
@@ -41,39 +40,29 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
   const compact = !!opts.compact;
 
   if (!isGitRepo()) {
-    p.outro(pico.red('Not a git repository'));
-    process.exit(1);
-    return;
+    throw new CliError('Not a git repository');
   }
 
   const status = gitOptional(['status', '--porcelain']);
   if (status) {
-    p.outro(pico.red('Working directory is not clean. Commit or stash changes first.'));
-    process.exit(1);
-    return;
+    throw new CliError('Working directory is not clean. Commit or stash changes first.');
   }
 
   const pkgPath = join(process.cwd(), 'package.json');
   if (!existsSync(pkgPath)) {
-    p.outro(pico.red('No package.json found in current directory'));
-    process.exit(1);
-    return;
+    throw new CliError('No package.json found in current directory');
   }
 
   let pkg: { version?: string };
   try {
     pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
   } catch {
-    p.outro(pico.red('package.json is not valid JSON'));
-    process.exit(1);
-    return;
+    throw new CliError('package.json is not valid JSON');
   }
   const currentVersion = pkg.version as string;
 
   if (!currentVersion) {
-    p.outro(pico.red('No version field in package.json'));
-    process.exit(1);
-    return;
+    throw new CliError('No version field in package.json');
   }
 
   const lastTag = getLastTag();
@@ -91,9 +80,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
   });
 
   if (!changelog) {
-    p.outro(pico.red('No commits to release'));
-    process.exit(1);
-    return;
+    throw new CliError('No commits to release');
   }
 
   p.log.message(changelog);
@@ -131,9 +118,7 @@ export async function handleRelease(opts: ReleaseOptions): Promise<void> {
 
   const hash = gitOptional(['rev-parse', '--short', 'HEAD']);
   if (!hash) {
-    p.outro(pico.red('Commit failed'));
-    process.exit(1);
-    return;
+    throw new CliError('Commit failed');
   }
 
   if (!noTag) {
