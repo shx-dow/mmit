@@ -10,6 +10,7 @@ import { handleChangelog } from './changelog.js';
 import { handleRelease } from './release.js';
 import { handleInit } from './init.js';
 import { handleDoctor } from './doctor.js';
+import { handleConfig } from './configCmd.js';
 import { getGitDiff, createCommit } from './git.js';
 import { renderHeader, VERSION } from './logo.js';
 
@@ -38,6 +39,14 @@ export async function run(): Promise<void> {
     .option('-m, --model <name>', 'Model name override')
     .action(async (opts) => {
       await handleDoctor(opts);
+    });
+
+  program
+    .command('config')
+    .description('View or change saved config (config [list|get|set])')
+    .argument('[args...]', 'list, get <key>, or set <key> <value>')
+    .action(async (args) => {
+      await handleConfig(args);
     });
 
   program

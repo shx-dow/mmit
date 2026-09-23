@@ -21,6 +21,13 @@ const GLOBAL_CONFIG_PATH = join(homedir(), '.mmit.json');
 
 const VALID_PROVIDERS = new Set(['openai', 'anthropic', 'gemini', 'openrouter']);
 
+export const CONFIG_KEYS = ['provider', 'model', 'apiKey', 'maxDiffTokens', 'commitTypes', 'autoConfirm'] as const;
+export type ConfigKey = (typeof CONFIG_KEYS)[number];
+
+export function isValidProvider(value: string): boolean {
+  return VALID_PROVIDERS.has(value);
+}
+
 const DEFAULT_CONFIG: Config = {
   maxDiffTokens: 8000,
   commitTypes: [
